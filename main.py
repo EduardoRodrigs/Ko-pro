@@ -741,6 +741,20 @@ async def add_produto(nome_produto: str = Form(...), meta_quantidade: int = Form
         "produto": {"id": prod.id, "nome_produto": prod.nome_produto, "meta": prod.meta_quantidade}
     }
 
+@app.delete("/gerenciamento/deletar/{produto_id}")
+@app.post("/gerenciamento/deletar/{produto_id}")
+async def delete_produto(produto_id: int, db: Session = Depends(get_db)):
+    prod = db.query(ProdutoMeta).filter(ProdutoMeta.id == produto_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+        
+    # Also delete associated positivacoes
+    db.query(PositivacaoDinamica).filter(PositivacaoDinamica.produto_id == produto_id).delete()
+    
+    db.delete(prod)
+    db.commit()
+    return HTMLResponse(content="", status_code=200)
+
 @app.get("/api/dashboard")
 async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
     current_month = get_current_month()

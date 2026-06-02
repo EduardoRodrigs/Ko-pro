@@ -814,13 +814,21 @@ async function loadMetasOperationalPage() {
                 const pct = lp.meta > 0 ? (lp.realizado / lp.meta) * 100 : 0;
                 const color = pct >= 100 ? 'bg-green-500' : 'bg-brand-light';
                 return `
-                <li class="p-3 bg-white border-b border-gray-50 last:border-0">
+                <li id="launch-item-${lp.id}" class="p-3 bg-white border-b border-gray-50 last:border-0">
                     <div class="flex justify-between items-center text-sm mb-1.5">
                         <div class="flex flex-col">
                             <span class="font-bold text-gray-700">${lp.nome_produto}</span>
                             <span class="text-[10px] text-gray-400 font-semibold">Objetivo: ${lp.meta} clientes</span>
                         </div>
-                        <span class="text-xs font-bold text-gray-600">${lp.realizado} / ${lp.meta}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-gray-600">${lp.realizado} / ${lp.meta}</span>
+                            <button class="text-red-500 hover:text-red-700 p-1 transition-colors active:scale-90"
+                                    hx-delete="/gerenciamento/deletar/${lp.id}"
+                                    hx-target="#launch-item-${lp.id}"
+                                    hx-swap="outerHTML">
+                                <i class="ph ph-trash text-base"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                         <div class="${color} h-2 rounded-full progress-fill" style="width: ${pct}%"></div>
@@ -828,6 +836,7 @@ async function loadMetasOperationalPage() {
                 </li>
                 `;
             }).join('');
+            htmx.process(launchesList);
         } else {
             launchesList.innerHTML = `<li class="p-3 text-center text-sm text-gray-500">Nenhum foco sazonal ativo</li>`;
         }
