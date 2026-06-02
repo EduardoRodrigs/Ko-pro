@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-1">Indicadores e Metas</h2>
+    <p class="text-sm text-gray-500">Gestão e acompanhamento dinâmico de objetivos</p>
+</div>
+
+<!-- Metas Operational Progress Cards -->
+<div id="metas-progress-cards" class="space-y-4 mb-6">
+    <!-- Loaded dynamically via JS -->
+    <div class="animate-pulse flex flex-col space-y-4">
+        <div class="h-24 bg-gray-200 rounded-xl"></div>
+        <div class="h-24 bg-gray-200 rounded-xl"></div>
+    </div>
+</div>
+
+<!-- Metas Target Management Accordion (NEW MOVED HERE) -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+    <button class="w-full flex justify-between items-center text-left focus:outline-none" onclick="toggleAccordion('metas-form-accordion', 'accordion-chevron')">
+        <h3 class="font-semibold text-gray-700 flex items-center">
+            <i class="ph ph-sliders text-xl mr-2 text-brand"></i>
+            Editar Objetivos do Mês
+        </h3>
+        <i id="accordion-chevron" class="ph ph-caret-down text-gray-400 text-lg transition-transform duration-200"></i>
+    </button>
+    
+    <div id="metas-form-accordion" class="hidden mt-4 pt-4 border-t border-gray-100">
+        <form id="metas-form" class="space-y-4">
+            <div class="border-b border-gray-100 pb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sempre Juntos (%)</label>
+                <div class="relative">
+                    <input type="number" step="0.1" name="meta_sempre_juntos_pct" required class="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none" placeholder="Ex: 39">
+                    <span class="absolute right-3 top-2.5 text-gray-400">%</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cervejas (Total)</label>
+                    <input type="number" name="meta_cerveja_total" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cerveja 600ml</label>
+                    <input type="number" name="meta_cerveja_600ml" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Long Neck</label>
+                    <input type="number" name="meta_cerveja_ln" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lata</label>
+                    <input type="number" name="meta_cerveja_lata" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Drinks (ARTD)</label>
+                    <input type="number" name="meta_artd" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monster</label>
+                    <input type="number" name="meta_monster" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Perfetti</label>
+                    <input type="number" name="meta_perfetti" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Campari</label>
+                    <input type="number" name="meta_campari" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full mt-4 bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors">
+                Salvar Metas
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Launch Products Section -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-8">
+    <h3 class="font-semibold text-gray-700 mb-4 flex items-center">
+        <i class="ph ph-plus-circle text-xl mr-2 text-brand"></i>
+        Gerenciamento de Produto Foco
+    </h3>
+    
+    <!-- Add Product Form -->
+    <form id="add-product-form" class="flex gap-2 mb-6">
+        <input type="text" id="new-product-name" required placeholder="Nome do Produto Foco" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none text-sm">
+        <input type="number" id="new-product-meta" required min="1" placeholder="Qtd Objetivo" class="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand focus:border-brand outline-none text-sm">
+        <button type="submit" class="bg-brand hover:bg-brand-dark text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center shrink-0">
+            <i class="ph ph-plus mr-1"></i> Adicionar
+        </button>
+    </form>
+    
+    <!-- Active Launches List -->
+    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Produtos Foco Cadastrados</h4>
+    <ul id="launches-list" class="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+        <!-- Loaded dynamically via JS -->
+        <li class="p-3 text-center text-sm text-gray-500">Nenhum produto foco cadastrado</li>
+    </ul>
+</div>
+
+<!-- Save toast helper -->
+<div id="save-toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium opacity-0 transition-opacity duration-300 pointer-events-none">
+    Carregando...
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleAccordion(id, chevronId) {
+        const accordion = document.getElementById(id);
+        const chevron = document.getElementById(chevronId);
+        if (accordion.classList.contains('hidden')) {
+            accordion.classList.remove('hidden');
+            chevron.classList.add('rotate-180');
+        } else {
+            accordion.classList.add('hidden');
+            chevron.classList.remove('rotate-180');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadMetasOperationalPage();
+        loadMetas();
+        document.getElementById('add-product-form').addEventListener('submit', handleAddProduct);
+        document.getElementById('metas-form').addEventListener('submit', handleMetasSave);
+    });
+</script>
+{% endblock %}

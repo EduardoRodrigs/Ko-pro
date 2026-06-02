@@ -1,0 +1,19 @@
+# Render Blueprint Specification for Andina Pro
+services:
+  - type: web
+    name: andina-pro
+    env: python
+    # Select starter plan (minimum required for Persistent Disks on Render)
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn.conf.py main:app
+    # Persistent Disk configuration to keep the SQLite database file safe across redeploys
+    disk:
+      name: andina-pro-storage
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/andina_pro.db
+      - key: PYTHON_VERSION
+        value: 3.10.13

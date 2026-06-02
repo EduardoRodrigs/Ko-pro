@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6 flex items-center">
+    <a href="/" class="text-gray-500 hover:text-brand mr-3">
+        <i class="ph ph-arrow-left text-2xl"></i>
+    </a>
+    <div>
+        <h2 class="text-xl font-bold text-gray-800 leading-tight" id="cli-nome">Carregando...</h2>
+        <p class="text-sm text-gray-500" id="cli-cod">Código: {{ cod_cliente }}</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="text-sm text-gray-600 mb-2 truncate">
+        <i class="ph ph-map-pin mr-1"></i> <span id="cli-end" class="font-medium text-gray-800">...</span>
+    </div>
+    <div class="text-sm text-gray-600 mb-3">
+        <i class="ph ph-calendar mr-1"></i> Rota: <span id="cli-rota" class="font-medium text-gray-800">...</span>
+    </div>
+    <div class="flex gap-2">
+        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium" id="cli-canal">...</span>
+        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium" id="cli-class">...</span>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-8">
+    <h3 class="font-semibold text-gray-700 mb-4 border-b border-gray-100 pb-2">Checklist de Positivação</h3>
+    
+    <div id="checklist-container" class="space-y-1">
+        <!-- Sempre Juntos (Condicional) -->
+        <div id="container-sempre-juntos" class="hidden">
+            <label class="custom-checkbox-container">Sempre Juntos
+                <input type="checkbox" id="chk-sempre_juntos" onchange="saveCheck('sempre_juntos')">
+                <span class="checkmark"></span>
+            </label>
+        </div>
+
+        <div class="my-4 border-t border-gray-100"></div>
+
+        <!-- Master Cervejas -->
+        <label class="custom-checkbox-container font-semibold text-gray-800">Cervejas
+            <input type="checkbox" id="chk-master-cervejas" onchange="toggleCervejas()">
+            <span class="checkmark"></span>
+        </label>
+        
+        <!-- Sub Cervejas -->
+        <div id="sub-cervejas" class="expandable-content pl-6 border-l-2 border-gray-100 ml-4 mb-4">
+            <label class="custom-checkbox-container mt-2">600ml
+                <input type="checkbox" id="chk-cerveja_600ml" onchange="saveCheck('cerveja_600ml')">
+                <span class="checkmark"></span>
+            </label>
+            <label class="custom-checkbox-container">Long Neck
+                <input type="checkbox" id="chk-cerveja_ln" onchange="saveCheck('cerveja_ln')">
+                <span class="checkmark"></span>
+            </label>
+            <label class="custom-checkbox-container">Lata
+                <input type="checkbox" id="chk-cerveja_lata" onchange="saveCheck('cerveja_lata')">
+                <span class="checkmark"></span>
+            </label>
+        </div>
+
+        <label class="custom-checkbox-container">Drinks
+            <input type="checkbox" id="chk-drinks" onchange="saveCheck('drinks')">
+            <span class="checkmark"></span>
+        </label>
+
+        <!-- Dynamic Launch Products Container -->
+        <div id="dynamic-launches-checklist" class="space-y-1">
+            <!-- Loaded dynamically via JS -->
+        </div>
+    </div>
+</div>
+
+<!-- Saving indicator -->
+<div id="save-toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium opacity-0 transition-opacity duration-300 pointer-events-none">
+    Salvando...
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const codCliente = "{{ cod_cliente }}";
+    const canaisSempreJuntos = ['Bar', 'Lanchonete', 'Restaurante', 'Padaria', 'Mercearia'];
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        loadClienteData(codCliente);
+    });
+
+    function toggleCervejas() {
+        const master = document.getElementById('chk-master-cervejas');
+        const subContainer = document.getElementById('sub-cervejas');
+        const subs = ['chk-cerveja_600ml', 'chk-cerveja_ln', 'chk-cerveja_lata'];
+        
+        if (master.checked) {
+            subContainer.classList.add('expanded');
+        } else {
+            subContainer.classList.remove('expanded');
+            // Uncheck and save all subs
+            subs.forEach(id => {
+                const el = document.getElementById(id);
+                if(el.checked) {
+                    el.checked = false;
+                    saveCheck(id.replace('chk-', ''));
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

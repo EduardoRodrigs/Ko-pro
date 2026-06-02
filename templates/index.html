@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Filter Section -->
+<div class="mb-3 space-y-2.5">
+    <!-- Week Pills (Filtro de Semana Maior) -->
+    <div>
+        <div class="flex justify-between items-center bg-gray-100 p-1 rounded-xl">
+            <button class="week-pill flex-1 text-center py-2.5 text-sm font-semibold rounded-lg bg-white text-brand shadow-sm transition-all active:scale-95 duration-75" onclick="selectWeek('', this)">Geral</button>
+            <button class="week-pill flex-1 text-center py-2.5 text-sm font-semibold rounded-lg text-gray-600 transition-all active:scale-95 duration-75" onclick="selectWeek('S1', this)">S1</button>
+            <button class="week-pill flex-1 text-center py-2.5 text-sm font-semibold rounded-lg text-gray-600 transition-all active:scale-95 duration-75" onclick="selectWeek('S2', this)">S2</button>
+            <button class="week-pill flex-1 text-center py-2.5 text-sm font-semibold rounded-lg text-gray-600 transition-all active:scale-95 duration-75" onclick="selectWeek('S3', this)">S3</button>
+            <button class="week-pill flex-1 text-center py-2.5 text-sm font-semibold rounded-lg text-gray-600 transition-all active:scale-95 duration-75" onclick="selectWeek('S4', this)">S4</button>
+        </div>
+    </div>
+    
+    <!-- Day Selector (Carrossel Horizontal de Dias) -->
+    <div>
+        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-brand border border-brand text-white shadow-md shadow-red-100 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('', this)">
+                <span class="day-label text-xs font-bold text-white leading-none my-auto">Todos</span>
+            </button>
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-white border border-gray-200 text-gray-700 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('Seg', this)">
+                <span class="day-abbrev text-[9px] uppercase text-gray-400 font-semibold leading-none mb-0.5">Seg</span>
+                <span class="day-label text-xs font-bold text-gray-800 leading-none">2ª</span>
+            </button>
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-white border border-gray-200 text-gray-700 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('Ter', this)">
+                <span class="day-abbrev text-[9px] uppercase text-gray-400 font-semibold leading-none mb-0.5">Ter</span>
+                <span class="day-label text-xs font-bold text-gray-800 leading-none">3ª</span>
+            </button>
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-white border border-gray-200 text-gray-700 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('Qua', this)">
+                <span class="day-abbrev text-[9px] uppercase text-gray-400 font-semibold leading-none mb-0.5">Qua</span>
+                <span class="day-label text-xs font-bold text-gray-800 leading-none">4ª</span>
+            </button>
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-white border border-gray-200 text-gray-700 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('Qui', this)">
+                <span class="day-abbrev text-[9px] uppercase text-gray-400 font-semibold leading-none mb-0.5">Qui</span>
+                <span class="day-label text-xs font-bold text-gray-800 leading-none">5ª</span>
+            </button>
+            <button class="day-btn flex-1 min-w-[56px] py-2 flex flex-col justify-center items-center rounded-xl bg-white border border-gray-200 text-gray-700 transition-all active:scale-90 active:shadow-inner duration-75" onclick="selectDay('Sex', this)">
+                <span class="day-abbrev text-[9px] uppercase text-gray-400 font-semibold leading-none mb-0.5">Sex</span>
+                <span class="day-label text-xs font-bold text-gray-800 leading-none">6ª</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Search Bar and Status Filter -->
+    <div class="space-y-2">
+        <!-- Text Search -->
+        <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <i class="ph ph-magnifying-glass text-gray-400 text-lg"></i>
+            </span>
+            <input type="text" id="search-input" placeholder="Buscar por nome ou código..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all shadow-sm text-sm" oninput="filterClientesLocal()">
+        </div>
+        
+        <!-- Status select -->
+        <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <i class="ph ph-funnel text-gray-400 text-sm"></i>
+            </span>
+            <select id="filter-meta" class="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-brand focus:border-transparent shadow-sm appearance-none text-sm cursor-pointer">
+                <option value="todos">Todos os Clientes</option>
+                <option value="cervejas">Compraram Cervejas</option>
+                <option value="drinks">Compraram Drinks</option>
+                <option value="sempre_juntos">Compraram Sempre Juntos</option>
+                <!-- Dynamic launches loaded here -->
+            </select>
+            <span class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                <i class="ph ph-caret-down text-gray-400 text-sm"></i>
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Otimizar Rota Container -->
+<div id="optimize-container" class="hidden mb-3">
+    <button onclick="optimizeRoute()" class="w-full bg-brand-light/10 hover:bg-brand-light/20 text-brand font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex justify-center items-center gap-1.5 shadow-sm border border-brand-light/20 active:scale-[0.98]">
+        <i class="ph ph-lightning text-sm animate-pulse"></i>
+        ⚡ Otimizar Ordem de Visita
+    </button>
+</div>
+
+<!-- Client List -->
+<div class="mb-8">
+    <div class="flex justify-between items-center mb-3 px-1">
+        <h3 class="font-bold text-gray-800 text-sm">Clientes Cadastrados</h3>
+        <span id="client-count" class="text-xs font-bold px-2.5 py-1 bg-brand/10 text-brand rounded-full">...</span>
+    </div>
+    <ul id="client-list" class="max-h-[65vh] overflow-y-auto scrollbar-none space-y-3">
+        <!-- Loaded via JS -->
+        <li class="p-4 text-center bg-white rounded-xl border border-gray-100 text-gray-500 text-sm">Carregando...</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentSemana = "";
+    let currentDia = "";
+    let isOptimized = false;
+    let userCoords = null;
+    
+    function selectWeek(val, elem) {
+        document.querySelectorAll('.week-pill').forEach(btn => {
+            btn.classList.remove('bg-white', 'text-brand', 'shadow-sm');
+            btn.classList.add('text-gray-600');
+        });
+        elem.classList.remove('text-gray-600');
+        elem.classList.add('bg-white', 'text-brand', 'shadow-sm');
+        currentSemana = val;
+        
+        // Reset day selection to "Geral" when week changes
+        const todosDayBtn = document.querySelector('.day-btn');
+        if (todosDayBtn) {
+            selectDay('', todosDayBtn);
+        } else {
+            currentDia = "";
+            const optContainer = document.getElementById('optimize-container');
+            if (optContainer) optContainer.classList.add('hidden');
+            resetOptimizeState();
+            loadClientes();
+        }
+    }
+
+    function selectDay(val, elem) {
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.classList.remove('bg-brand', 'border-brand', 'text-white', 'shadow-md', 'shadow-red-100');
+            btn.classList.add('bg-white', 'border-gray-200', 'text-gray-700');
+            
+            const abbrev = btn.querySelector('.day-abbrev');
+            if (abbrev) {
+                abbrev.classList.remove('text-red-200');
+                abbrev.classList.add('text-gray-400');
+            }
+            const lbl = btn.querySelector('.day-label');
+            if (lbl) {
+                lbl.classList.remove('text-white');
+                lbl.classList.add('text-gray-800');
+            }
+        });
+        
+        elem.classList.remove('bg-white', 'border-gray-200', 'text-gray-700');
+        elem.classList.add('bg-brand', 'border-brand', 'text-white', 'shadow-md', 'shadow-red-100');
+        
+        const abbrev = elem.querySelector('.day-abbrev');
+        if (abbrev) {
+            abbrev.classList.remove('text-gray-400');
+            abbrev.classList.add('text-red-200');
+        }
+        const lbl = elem.querySelector('.day-label');
+        if (lbl) {
+            lbl.classList.remove('text-gray-800');
+            lbl.classList.add('text-white');
+        }
+        
+        currentDia = val;
+        
+        const optContainer = document.getElementById('optimize-container');
+        if (optContainer) {
+            if (currentDia) {
+                optContainer.classList.remove('hidden');
+            } else {
+                optContainer.classList.add('hidden');
+            }
+        }
+        
+        resetOptimizeState();
+        loadClientes();
+    }
+
+    function optimizeRoute() {
+        if (!navigator.geolocation) {
+            alert("Geolocalização não é suportada por este dispositivo.");
+            return;
+        }
+        
+        const btn = document.querySelector('#optimize-container button');
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-sm"></i> Obtendo localização...';
+        btn.disabled = true;
+        
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userCoords = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                };
+                isOptimized = true;
+                btn.innerHTML = '<i class="ph ph-lightning text-sm"></i> ⚡ Ordem de Visita Otimizada';
+                btn.classList.remove('bg-brand-light/10', 'text-brand', 'border-brand-light/20');
+                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+                btn.disabled = false;
+                loadClientes();
+            },
+            (err) => {
+                console.error(err);
+                alert("Não foi possível acessar a geolocalização. Usando primeiro cliente como partida.");
+                userCoords = { lat: 0.0, lng: 0.0 };
+                isOptimized = true;
+                btn.innerHTML = '<i class="ph ph-lightning text-sm"></i> ⚡ Otimizada (Partida Padrão)';
+                btn.classList.remove('bg-brand-light/10', 'text-brand', 'border-brand-light/20');
+                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+                btn.disabled = false;
+                loadClientes();
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    }
+
+    function resetOptimizeState() {
+        isOptimized = false;
+        userCoords = null;
+        const btn = document.querySelector('#optimize-container button');
+        if (btn) {
+            btn.innerHTML = '<i class="ph ph-lightning text-sm"></i> ⚡ Otimizar Ordem de Visita';
+            btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
+            btn.classList.add('bg-brand-light/10', 'text-brand', 'border-brand-light/20');
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDynamicFilters().then(() => {
+            loadClientes();
+        });
+
+        document.getElementById('filter-meta').addEventListener('change', () => {
+            resetOptimizeState();
+            loadClientes();
+        });
+    });
+</script>
+{% endblock %}

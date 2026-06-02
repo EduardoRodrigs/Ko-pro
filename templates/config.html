@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-1">Ajustes</h2>
+    <p class="text-sm text-gray-500">Configuração de rotas e metas</p>
+</div>
+
+<!-- Upload CSV Section -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+    <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+        <i class="ph ph-file-xlsx text-xl mr-2 text-brand"></i>
+        Carga de Rota (Excel ou CSV)
+    </h3>
+    <form id="upload-form" class="space-y-4">
+        <div class="flex items-center justify-center w-full">
+            <label for="csv-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <i class="ph ph-upload-simple text-3xl text-gray-400 mb-2"></i>
+                    <p class="text-sm text-gray-500 font-semibold" id="file-name">Clique para selecionar</p>
+                    <p class="text-xs text-gray-400">formatos .xlsx ou .csv</p>
+                </div>
+                <input id="csv-file" type="file" accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden" required />
+            </label>
+        </div>
+        
+        <!-- Dropdown Rota Dinâmico -->
+        <div id="route-selection-container" class="hidden space-y-2">
+            <label for="route-select" class="block text-sm font-semibold text-gray-700">Selecione sua Rota</label>
+            <select id="route-select" class="w-full bg-white border border-gray-300 text-gray-700 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent shadow-sm">
+                <option value="">-- Selecione uma Rota --</option>
+            </select>
+        </div>
+        
+        <button type="submit" id="upload-btn" class="w-full bg-brand hover:bg-brand-dark text-white font-medium py-3 px-4 rounded-lg transition-colors flex justify-center items-center">
+            <span id="upload-text">Importar Rota</span>
+            <i class="ph ph-spinner animate-spin ml-2 hidden" id="upload-spinner"></i>
+        </button>
+    </form>
+    <div id="upload-message" class="mt-3 text-sm text-center hidden"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // File input UI update
+        const fileInput = document.getElementById('csv-file');
+        const fileNameDisplay = document.getElementById('file-name');
+        
+        fileInput.addEventListener('change', async (e) => {
+            if(e.target.files.length > 0) {
+                fileNameDisplay.textContent = e.target.files[0].name;
+                fileNameDisplay.classList.remove('text-gray-500');
+                fileNameDisplay.classList.add('text-brand');
+                
+                if (typeof scanFileRoutes === 'function') {
+                    await scanFileRoutes(e.target.files[0]);
+                }
+            }
+        });
+
+        // Handle forms
+        document.getElementById('upload-form').addEventListener('submit', handleUpload);
+    });
+</script>
+{% endblock %}

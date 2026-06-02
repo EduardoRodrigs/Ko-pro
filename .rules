@@ -1,0 +1,11 @@
+Instruções e Regras de Segurança do Projeto Andina Pro:
+
+Comunique-se e comente o código apenas em Português do Brasil.
+
+Mantenha o código simples (Python/SQLite no backend; HTML/CSS/Vanilla JS no frontend com Tailwind via CDN). Não use Node.js ou frameworks complexos no frontend.
+
+Use nomes reais de estabelecimentos brasileiros em dados de teste (ex: Bar do Zé), nunca nomes em inglês.
+
+Acesso a Arquivos: Você tem permissão total para ler, criar e editar arquivos .csv (para a base de clientes), .db / .sqlite (para o banco de dados), além dos arquivos de código na pasta raiz do projeto.
+
+Acesso à Rede: Você pode acessar a internet apenas para instalar pacotes Python via pip e usar CDNs públicos. Não exponha portas para a rede externa.

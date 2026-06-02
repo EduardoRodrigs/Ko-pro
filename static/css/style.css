@@ -1,0 +1,138 @@
+/* Custom animations and styling for a premium feel */
+
+body {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Glassmorphism utilities */
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Custom Checkbox Styling for Mobile */
+.custom-checkbox-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 45px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    user-select: none;
+    min-height: 32px;
+}
+
+.custom-checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 32px;
+    width: 32px;
+    background-color: #f3f4f6;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    transition: all 0.2s ease-in-out;
+}
+
+.custom-checkbox-container:hover input ~ .checkmark {
+    background-color: #e5e7eb;
+}
+
+.custom-checkbox-container input:checked ~ .checkmark {
+    background-color: #dc2626;
+    border-color: #dc2626;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.custom-checkbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.custom-checkbox-container .checkmark:after {
+    left: 10px;
+    top: 5px;
+    width: 8px;
+    height: 16px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+/* Smooth expansion for sub-items */
+.expandable-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out;
+    opacity: 0;
+    margin-top: 0;
+}
+
+.expandable-content.expanded {
+    max-height: 300px;
+    opacity: 1;
+    margin-top: 10px;
+}
+
+/* Progress bar animation */
+@keyframes fillProgress {
+    from { width: 0; }
+}
+
+.progress-fill {
+    animation: fillProgress 1s ease-out forwards;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-none {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Tactile Press Effects for Mobile Devices */
+.tactile-press-light {
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease, background-color 0.1s ease;
+}
+.tactile-press-light:active {
+    transform: scale(0.96) !important;
+    background-color: #f3f4f6 !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.tactile-press-brand {
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease, background-color 0.1s ease;
+}
+.tactile-press-brand:active {
+    transform: scale(0.96) !important;
+    background-color: #b91c1c !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+}
+
+.tactile-card {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.tactile-card:active {
+    transform: scale(0.98) !important;
+    background-color: #fafafa !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+    border-color: rgba(220, 38, 38, 0.2) !important;
+}
