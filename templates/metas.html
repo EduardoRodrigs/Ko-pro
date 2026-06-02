@@ -92,7 +92,24 @@
     </div>
 </div>
 
-<!-- Launch Products Section -->
+<!-- Aba de SKUs (Com Seta Retrátil) -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+    <button class="w-full flex justify-between items-center text-left focus:outline-none" onclick="toggleAccordion('skus-accordion', 'skus-chevron')">
+        <h3 class="font-semibold text-gray-700 flex items-center">
+            <i class="ph ph-barcode text-xl mr-2 text-brand"></i>
+            Atingimento por SKU (Sub-itens)
+        </h3>
+        <i id="skus-chevron" class="ph ph-caret-down text-gray-400 text-lg transition-transform duration-200"></i>
+    </button>
+    
+    <div id="skus-accordion" class="hidden mt-4 pt-4 border-t border-gray-100 space-y-4">
+        <div id="skus-list" class="space-y-4">
+            <div class="text-center text-sm text-gray-500 py-4">Carregando SKUs...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Aba de Gerenciamento -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-8">
     <h3 class="font-semibold text-gray-700 mb-4 flex items-center">
         <i class="ph ph-plus-circle text-xl mr-2 text-brand"></i>
@@ -112,7 +129,7 @@
     <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Produtos Foco Cadastrados</h4>
     <ul id="launches-list" class="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
         <!-- Loaded dynamically via JS -->
-        <li class="p-3 text-center text-sm text-gray-500">Nenhum produto foco cadastrado</li>
+        <li class="p-3 text-center text-sm text-gray-500">Nenhum foco sazonal ativo</li>
     </ul>
 </div>
 

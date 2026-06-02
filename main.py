@@ -1,5 +1,5 @@
 import io
-from fastapi import FastAPI, Depends, Request, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Depends, Request, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -24,6 +24,32 @@ def geocode_address(address_str):
     except (GeocoderTimedOut, GeocoderServiceError):
         pass
     return None, None
+
+def geocode_missing_clients(client_ids: list, db_session_maker):
+    db = db_session_maker()
+    try:
+        geocoded_count = 0
+        for cid in client_ids:
+            if geocoded_count >= 3:
+                break
+            c = db.query(Cliente).filter(Cliente.cod_cliente == cid).first()
+            if c and (c.latitude is None or c.longitude is None):
+                full_address = f"{c.endereco or ''}, {c.bairro or ''}, {c.cidade or ''} - RJ"
+                try:
+                    lat, lng = geocode_address(full_address)
+                    if lat and lng:
+                        c.latitude = lat
+                        c.longitude = lng
+                        db.add(c)
+                        geocoded_count += 1
+                except Exception:
+                    pass
+        if geocoded_count > 0:
+            db.commit()
+    except Exception as e:
+        print("Erro no geocoding em background:", e)
+    finally:
+        db.close()
 
 def haversine_distance(lat1, lon1, lat2, lon2):
     r = 6371  # radius of Earth in km
@@ -75,7 +101,13 @@ async def read_metas(request: Request):
 
 @app.get("/cliente/{cod_cliente}", response_class=HTMLResponse)
 async def read_cliente(request: Request, cod_cliente: str):
-    return templates.TemplateResponse("cliente.html", {"request": request, "cod_cliente": cod_cliente})
+    is_htmx = request.headers.get("HX-Request") == "true"
+    template_name = "cliente_content.html" if is_htmx else "cliente.html"
+    return templates.TemplateResponse(template_name, {
+        "request": request,
+        "cod_cliente": cod_cliente,
+        "is_htmx": is_htmx
+    })
 
 # --- API ENDPOINTS ---
 
@@ -395,8 +427,16 @@ async def get_clientes(
     user_lat: float = None, 
     user_lng: float = None, 
     rota: str = None,
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
+    if not rota or rota.strip() == "" or rota == "undefined" or rota == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        if first_route:
+            rota = first_route[0]
+        else:
+            rota = None
+
     query = db.query(Cliente)
     if rota:
         query = query.filter(Cliente.rota == rota)
@@ -446,22 +486,11 @@ async def get_clientes(
     query = query.order_by(Cliente.razao_social.asc())
     clientes = query.all()
     
-    # Progressive Geocoding (max 3 per request to prevent API freezes)
-    geocoded_count = 0
-    for c in clientes:
-        if (c.latitude is None or c.longitude is None) and geocoded_count < 3:
-            full_address = f"{c.endereco or ''}, {c.bairro or ''}, {c.cidade or ''} - RJ"
-            try:
-                lat, lng = geocode_address(full_address)
-                if lat and lng:
-                    c.latitude = lat
-                    c.longitude = lng
-                    db.add(c)
-                    geocoded_count += 1
-            except Exception:
-                pass
-    if geocoded_count > 0:
-        db.commit()
+    # Progressive Geocoding (queued in background to keep responses instant)
+    missing_geo_ids = [c.cod_cliente for c in clientes if c.latitude is None or c.longitude is None]
+    if missing_geo_ids and background_tasks:
+        from database import SessionLocal
+        background_tasks.add_task(geocode_missing_clients, missing_geo_ids[:3], SessionLocal)
     
     current_month = get_current_month()
     pos_checks = db.query(PositivacaoDinamica).filter(
@@ -602,7 +631,14 @@ async def get_cliente_data(cod_cliente: str, db: Session = Depends(get_db)):
 
 @app.post("/api/positivacao/{cod_cliente}")
 async def update_positivacao(cod_cliente: str, request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        data = await request.json()
+    else:
+        form_data = await request.form()
+        data = {}
+        for k, v in form_data.items():
+            data[k] = v in ('on', 'true', '1')
     current_month = get_current_month()
     
     for key, val in data.items():
@@ -727,17 +763,19 @@ async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
         db.add(meta)
         db.commit()
 
-    if not rota:
-        first_client = db.query(Cliente).first()
-        if first_client:
-            rota = first_client.rota
+    if not rota or rota.strip() == "" or rota == "undefined" or rota == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        if first_route:
+            rota = first_route[0]
+        else:
+            rota = None
         
     query_clients = db.query(Cliente)
     if rota:
         query_clients = query_clients.filter(Cliente.rota == rota)
         
     total_clients = query_clients.count()
-    canais_validos = ['Bar', 'Lanchonete', 'Restaurante', 'Padaria', 'Mercearia']
+    canais_validos = ['BAR', 'LANCHONETES', 'RESTAURANTE', 'PADARIA', 'MERCEARIA', 'Bar', 'Lanchonete', 'Restaurante', 'Padaria', 'Mercearia']
     clientes_validos_count = query_clients.filter(Cliente.canal_resumido.in_(canais_validos)).count()
     
     products = db.query(ProdutoMeta).all()
@@ -902,10 +940,46 @@ async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
             "meta": lp.meta_quantidade or 10
         })
         
+    # SKU positive-checked client count query
+    from sqlalchemy import func
+    skus_realizado = {}
+    sku_query = db.query(
+        PositivacaoDinamica.produto_id,
+        PositivacaoDinamica.sub_item,
+        func.count(PositivacaoDinamica.cod_cliente.distinct())
+    ).join(
+        Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+    ).filter(
+        PositivacaoDinamica.mes_ano == current_month,
+        PositivacaoDinamica.valor == True,
+        PositivacaoDinamica.sub_item.isnot(None),
+        PositivacaoDinamica.sub_item != ""
+    )
+    if rota:
+        sku_query = sku_query.filter(Cliente.rota == rota)
+        
+    sku_results = sku_query.group_by(PositivacaoDinamica.produto_id, PositivacaoDinamica.sub_item).all()
+    
+    # Map products
+    for pid, sub_name, count in sku_results:
+        prod_obj = db.query(ProdutoMeta).filter(ProdutoMeta.id == pid).first()
+        if prod_obj:
+            pname = prod_obj.nome_produto
+            prefix = None
+            if pname == "Cervejas":
+                prefix = "cervejas"
+            elif pname in ("Alcoólicos", "Campari"):
+                prefix = "alcoolicos"
+            elif pname == "Drinks":
+                prefix = "drinks"
+            if prefix:
+                skus_realizado[f"{prefix}:{sub_name}"] = count
+
     return {
         "metas": metas_dict,
         "realizado": realizado,
         "launches": launches_realizado,
+        "skus": skus_realizado,
         "total_clientes": total_clients,
         "clientes_validos_sj": clientes_validos_count
     }

@@ -1,0 +1,372 @@
+<div class="mb-5 flex items-center {% if is_htmx %}hidden{% endif %}">
+    <a href="/" class="text-gray-500 hover:text-brand mr-3">
+        <i class="ph ph-arrow-left text-2xl"></i>
+    </a>
+    <div>
+        <h2 class="text-xl font-bold text-gray-800 leading-tight" id="cli-nome">Carregando...</h2>
+        <p class="text-sm text-gray-500" id="cli-cod">Código: {{ cod_cliente }}</p>
+    </div>
+</div>
+
+<!-- Header info for Drawer View -->
+<div class="mb-4 {% if not is_htmx %}hidden{% endif %}">
+    <h3 class="text-xl font-bold text-gray-800 leading-tight" id="cli-nome-drawer">Carregando...</h3>
+    <p class="text-xs text-gray-500">Código: {{ cod_cliente }}</p>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="text-sm text-gray-600 mb-2 truncate">
+        <i class="ph ph-map-pin mr-1"></i> <span id="cli-end" class="font-medium text-gray-800">...</span>
+    </div>
+    <div class="text-sm text-gray-600 mb-3">
+        <i class="ph ph-calendar mr-1"></i> Rota: <span id="cli-rota" class="font-medium text-gray-800">...</span>
+    </div>
+    <div class="flex gap-2">
+        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium" id="cli-canal">...</span>
+        <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium" id="cli-class">...</span>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-8">
+    <div class="flex items-center justify-between border-b border-gray-100 pb-2 mb-4">
+        <h3 class="font-semibold text-gray-700">Checklist de Positivação</h3>
+        <!-- Discrete Saving Indicators -->
+        <div class="flex items-center gap-1 text-xs text-green-600 font-semibold min-h-[20px]">
+            <span id="save-indicator" class="htmx-indicator flex items-center gap-1 text-gray-400">
+                <i class="ph ph-cloud-arrow-up text-base animate-pulse"></i> Salvando...
+            </span>
+            <span id="save-success" class="hidden flex items-center gap-1 text-green-600">
+                <i class="ph ph-check-circle text-base"></i> Salvo
+            </span>
+        </div>
+    </div>
+    
+    <div id="checklist-container" class="space-y-3">
+        <!-- Sempre Juntos (Condicional) -->
+        <div id="container-sempre-juntos" class="hidden pb-2 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800 mb-0">Sempre Juntos
+                <input type="checkbox" id="chk-sempre_juntos"
+                       hx-post="/api/positivacao/{{ cod_cliente }}"
+                       hx-vals='js:{"sempre_juntos": this.checked}'
+                       hx-trigger="change"
+                       hx-indicator="#save-indicator"
+                       hx-swap="none">
+                <span class="checkmark"></span>
+            </label>
+        </div>
+
+        <!-- Cervejas Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Cervejas
+                    <input type="checkbox" id="chk-cervejas"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="toggleCategory('cervejas')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('cervejas')">
+                    <i id="chevron-cervejas" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-cervejas" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Cerpa Long Neck
+                    <input type="checkbox" id="chk-cervejas:Cerpa Long Neck"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Cerpa Long Neck": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Cerpa Long Neck')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis LN 355ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis LN 355ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Therezópolis LN 355ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Therezópolis LN 355ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Lata 350ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Therezópolis Lata 350ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Therezópolis Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Lata 473ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Lata 473ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Therezópolis Lata 473ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Therezópolis Lata 473ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Vidro 500ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Vidro 500ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Therezópolis Vidro 500ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Therezópolis Vidro 500ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Vidro 600ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Therezópolis Vidro 600ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Therezópolis Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia LN 330ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia LN 330ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Estrella Galicia LN 330ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Estrella Galicia LN 330ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Lata 350ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Estrella Galicia Lata 350ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Estrella Galicia Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Lata 473ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Lata 473ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Estrella Galicia Lata 473ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Estrella Galicia Lata 473ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Vidro 600ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Estrella Galicia Vidro 600ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Estrella Galicia Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Tijuca Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Tijuca Lata 350ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Tijuca Lata 350ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Tijuca Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Tijuca Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Tijuca Vidro 600ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"cervejas:Tijuca Vidro 600ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('cervejas', 'Tijuca Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Alcoólicos Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Alcoólicos
+                    <input type="checkbox" id="chk-alcoolicos"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="toggleCategory('alcoolicos')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('alcoolicos')">
+                    <i id="chevron-alcoolicos" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-alcoolicos" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Campari 900ml
+                    <input type="checkbox" id="chk-alcoolicos:Campari 900ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos:Campari 900ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('alcoolicos', 'Campari 900ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Skyy Vodka 750ml
+                    <input type="checkbox" id="chk-alcoolicos:Skyy Vodka 750ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos:Skyy Vodka 750ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('alcoolicos', 'Skyy Vodka 750ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Dreher 900ml
+                    <input type="checkbox" id="chk-alcoolicos:Dreher 900ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos:Dreher 900ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('alcoolicos', 'Dreher 900ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Sagatiba
+                    <input type="checkbox" id="chk-alcoolicos:Sagatiba"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos:Sagatiba": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('alcoolicos', 'Sagatiba')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Aperol
+                    <input type="checkbox" id="chk-alcoolicos:Aperol"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"alcoolicos:Aperol": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('alcoolicos', 'Aperol')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Drinks Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Drinks
+                    <input type="checkbox" id="chk-drinks"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"drinks": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="toggleCategory('drinks')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('drinks')">
+                    <i id="chevron-drinks" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-drinks" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Jack & Coke Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Jack & Coke Lata 269ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"drinks:Jack & Coke Lata 269ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('drinks', 'Jack & Coke Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Absolut & Sprite Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Absolut & Sprite Lata 269ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"drinks:Absolut & Sprite Lata 269ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('drinks', 'Absolut & Sprite Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Schweppes Mixer Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Schweppes Mixer Lata 269ml"
+                           hx-post="/api/positivacao/{{ cod_cliente }}"
+                           hx-vals='js:{"drinks:Schweppes Mixer Lata 269ml": this.checked}'
+                           hx-trigger="change"
+                           hx-indicator="#save-indicator"
+                           hx-swap="none"
+                           onchange="saveSubItem('drinks', 'Schweppes Mixer Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Monster (Clique Direto) -->
+        <div class="py-1 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800 mb-0 pb-0">Monster
+                <input type="checkbox" id="chk-monster"
+                       hx-post="/api/positivacao/{{ cod_cliente }}"
+                       hx-vals='js:{"monster": this.checked}'
+                       hx-trigger="change"
+                       hx-indicator="#save-indicator"
+                       hx-swap="none">
+                <span class="checkmark"></span>
+            </label>
+        </div>
+
+        <!-- Perfetti (Clique Direto) -->
+        <div class="py-1 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800 mb-0 pb-0">Perfetti
+                <input type="checkbox" id="chk-perfetti"
+                       hx-post="/api/positivacao/{{ cod_cliente }}"
+                       hx-vals='js:{"perfetti": this.checked}'
+                       hx-trigger="change"
+                       hx-indicator="#save-indicator"
+                       hx-swap="none">
+                <span class="checkmark"></span>
+            </label>
+        </div>
+
+        <!-- Dynamic Launch Products Container -->
+        <div id="dynamic-launches-checklist" class="space-y-1">
+            <!-- Loaded dynamically via JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Run content load immediately on swap/render
+    loadClienteData("{{ cod_cliente }}");
+    
+    // Bind HTMX request events to show checking saved successes
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target && (evt.detail.target.id === 'cliente-drawer-content' || evt.detail.target.closest('#cliente-drawer-content'))) {
+            if (evt.detail.successful) {
+                const successEl = document.getElementById('save-success');
+                if (successEl) {
+                    successEl.classList.remove('hidden');
+                    setTimeout(() => {
+                        successEl.classList.add('hidden');
+                    }, 1200);
+                }
+            }
+        }
+    });
+</script>

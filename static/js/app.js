@@ -1,3 +1,6 @@
+// Global channels list for Sempre Juntos rule
+const canaisSempreJuntos = ['BAR', 'LANCHONETES', 'RESTAURANTE', 'PADARIA', 'MERCEARIA', 'Bar', 'Lanchonete', 'Restaurante', 'Padaria', 'Mercearia'];
+
 // Utilities for Toast
 let toastTimeout;
 function showToast(message) {
@@ -232,8 +235,8 @@ function renderClientesList(clientes) {
         const badgesContainer = badgesHtml ? `<div class="flex flex-wrap gap-1 mt-1.5 mb-0.5">${badgesHtml}</div>` : '';
         
         return `
-        <li>
-            <a href="/cliente/${c.cod_cliente}" class="block p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-brand-light/30 hover:shadow-md tactile-card">
+        <li data-client-code="${c.cod_cliente}">
+            <a href="#" onclick="openClienteDrawer('${c.cod_cliente}')" class="block p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-brand-light/30 hover:shadow-md tactile-card">
                 <div class="flex justify-between items-start">
                     <div class="pr-2 flex-1 min-w-0">
                         <h4 class="font-bold text-gray-800 text-sm leading-snug mb-1 truncate">${c.razao_social}</h4>
@@ -423,6 +426,123 @@ async function handleMetasSave(e) {
     }
 }
 
+// --- Drawer Slide-Over & HTMX Navigation ---
+function openClienteDrawer(cod) {
+    const drawer = document.getElementById('cliente-drawer');
+    const content = document.getElementById('cliente-drawer-content');
+    if (!drawer || !content) return;
+    
+    // Show drawer
+    drawer.classList.remove('hidden');
+    // Force reflow
+    drawer.offsetHeight;
+    drawer.classList.remove('translate-x-full');
+    drawer.classList.add('translate-x-0');
+    
+    // Clear content and show loader
+    content.innerHTML = `
+        <div id="cliente-drawer-loader" class="flex flex-col items-center justify-center py-12">
+            <i class="ph ph-spinner animate-spin text-4xl text-brand"></i>
+            <p class="text-sm text-gray-400 mt-2">Carregando...</p>
+        </div>
+    `;
+    
+    drawer.dataset.activeClient = cod;
+    
+    // Trigger HTMX to load content
+    htmx.ajax('GET', `/cliente/${cod}`, {
+        target: '#cliente-drawer-content',
+        swap: 'innerHTML'
+    });
+}
+
+function closeClienteDrawer() {
+    const drawer = document.getElementById('cliente-drawer');
+    if (!drawer) return;
+    
+    drawer.classList.add('translate-x-full');
+    drawer.classList.remove('translate-x-0');
+    
+    setTimeout(() => {
+        drawer.classList.add('hidden');
+        const activeClient = drawer.dataset.activeClient;
+        if (activeClient) {
+            refreshClientCard(activeClient);
+        }
+    }, 300);
+}
+
+async function refreshClientCard(cod) {
+    try {
+        const res = await fetch(`/api/cliente/${cod}`);
+        const data = await res.json();
+        
+        // Find the client list item in the DOM
+        const li = document.querySelector(`li[data-client-code="${cod}"]`);
+        if (!li) return;
+        
+        // Update the badges container
+        const p = data.positivacao || {};
+        let badgesHtml = '';
+        
+        const baseMetas = [
+            { key: 'Sempre Juntos', label: 'Sempre Juntos', classes: 'bg-red-100 text-red-800' },
+            { key: 'Cervejas', label: 'Cervejas', classes: 'bg-amber-100 text-amber-800' },
+            { key: 'Drinks', label: 'Drinks', classes: 'bg-blue-100 text-blue-800' },
+            { key: 'Monster', label: 'Monster', classes: 'bg-green-100 text-green-800' },
+            { key: 'Perfetti', label: 'Perfetti', classes: 'bg-pink-100 text-pink-800' },
+            { key: 'Alcoólicos', label: 'Alcoólicos', classes: 'bg-orange-100 text-orange-800' }
+        ];
+        
+        baseMetas.forEach(meta => {
+            if (p[meta.key] === true || p[meta.key.toLowerCase().replace('á', 'a').replace('ó', 'o').replace(' ', '_')] === true) {
+                badgesHtml += `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${meta.classes} shrink-0">${meta.label}</span>`;
+            }
+        });
+        
+        // Dynamic launches badges
+        const prodRes = await fetch('/api/produtos');
+        const products = await prodRes.json();
+        
+        products.forEach(prod => {
+            const prodName = prod.nome_produto;
+            if (prodName !== "Cervejas" && prodName !== "Drinks" && prodName !== "Sempre Juntos" &&
+                prodName !== "Monster" && prodName !== "Perfetti" && prodName !== "Alcoólicos" &&
+                prodName !== "Campari") {
+                const key = `prod_${prod.id}`;
+                if (p[key] === true) {
+                    badgesHtml += `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 shrink-0 truncate max-w-[80px]">${prodName}</span>`;
+                }
+            }
+        });
+        
+        // Find badges container or create it
+        let container = li.querySelector('.flex-wrap');
+        if (badgesHtml) {
+            if (!container) {
+                // Insert it below header
+                const header = li.querySelector('h4');
+                if (header) {
+                    container = document.createElement('div');
+                    container.className = 'flex flex-wrap gap-1 mt-1.5 mb-0.5';
+                    header.parentNode.insertBefore(container, header.nextSibling);
+                }
+            }
+            if (container) {
+                container.innerHTML = badgesHtml;
+                container.classList.remove('hidden');
+            }
+        } else {
+            if (container) {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            }
+        }
+    } catch(e) {
+        console.error("Error refreshing client card badges:", e);
+    }
+}
+
 async function loadMetas() {
     const form = document.getElementById('metas-form');
     if(!form) return;
@@ -499,27 +619,38 @@ async function loadClienteData(cod) {
                 prod.nome_produto !== "Campari"
             );
             
+            const divider = document.createElement('div');
+            divider.className = "my-4 border-t border-gray-100";
+            launchesContainer.appendChild(divider);
+            
+            const title = document.createElement('h4');
+            title.className = "text-xs font-bold text-gray-400 uppercase tracking-wider mb-3";
+            title.textContent = "Lançamentos e Foco";
+            launchesContainer.appendChild(title);
+            
             if (dynamicLaunches.length > 0) {
-                const divider = document.createElement('div');
-                divider.className = "my-4 border-t border-gray-100";
-                launchesContainer.appendChild(divider);
-                
-                const title = document.createElement('h4');
-                title.className = "text-xs font-bold text-gray-400 uppercase tracking-wider mb-3";
-                title.textContent = "Lançamentos e Foco";
-                launchesContainer.appendChild(title);
-                
                 dynamicLaunches.forEach(prod => {
                     const isChecked = p[String(prod.id)] === true || p[`prod_${prod.id}`] === true;
                     const lbl = document.createElement('label');
                     lbl.className = "custom-checkbox-container";
                     lbl.innerHTML = `
                         ${prod.nome_produto}
-                        <input type="checkbox" id="chk-prod_${prod.id}" ${isChecked ? 'checked' : ''} onchange="saveCheck('prod_${prod.id}')">
+                        <input type="checkbox" id="chk-prod_${prod.id}" ${isChecked ? 'checked' : ''}
+                               hx-post="/api/positivacao/${cod}"
+                               hx-vals='js:{"prod_${prod.id}": this.checked}'
+                               hx-trigger="change"
+                               hx-indicator="#save-indicator"
+                               hx-swap="none">
                         <span class="checkmark"></span>
                     `;
                     launchesContainer.appendChild(lbl);
+                    htmx.process(lbl);
                 });
+            } else {
+                const msg = document.createElement('div');
+                msg.className = "text-xs text-gray-400 italic py-1";
+                msg.textContent = "Nenhum foco sazonal ativo";
+                launchesContainer.appendChild(msg);
             }
         }
 
@@ -614,90 +745,95 @@ async function loadMetasOperationalPage() {
         const campariColor = campariVal >= campariMeta ? 'bg-green-500' : 'bg-orange-500';
         html += createProgressCard('Alcoólicos', campariVal, campariMeta, (campariVal/campariMeta)*100, campariColor, 'border-l-4 border-l-orange-500');
         
-        // --- SUBSEÇÕES OPCIONAIS E COLAPSÁVEIS (Closed by default) ---
-        
-        // A. Quebras de Cerveja Collapsible Section
-        html += `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mt-4">
-            <button class="w-full flex justify-between items-center text-left focus:outline-none" onclick="toggleAccordion('quebras-cerveja-accordion', 'quebras-chevron')">
-                <h3 class="font-semibold text-gray-700 flex items-center">
-                    <i class="ph ph-beer-bottle text-xl mr-2 text-brand"></i>
-                    Quebras de Cerveja (Sub-itens)
-                </h3>
-                <i id="quebras-chevron" class="ph ph-caret-down text-gray-400 text-lg transition-transform duration-200"></i>
-            </button>
-            <div id="quebras-cerveja-accordion" class="hidden mt-4 pt-4 border-t border-gray-100 space-y-4">
-                ${createMiniBar('Cerveja 600ml', real.cerveja_600ml || 0, metas.cerveja_600ml || 10)}
-                ${createMiniBar('Cerveja Long Neck', real.cerveja_ln || 0, metas.cerveja_ln || 10)}
-                ${createMiniBar('Cerveja Lata', real.cerveja_lata || 0, metas.cerveja_lata || 10)}
-            </div>
-        </div>
-        `;
-        
-        // B. Lançamentos e Produtos Foco Collapsible Section
-        if (launches && launches.length > 0) {
-            html += `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mt-4">
-                <button class="w-full flex justify-between items-center text-left focus:outline-none" onclick="toggleAccordion('launches-accordion', 'launches-chevron')">
-                    <h3 class="font-semibold text-gray-700 flex items-center">
-                        <i class="ph ph-rocket text-xl mr-2 text-brand"></i>
-                        Lançamentos e Produtos Foco
-                    </h3>
-                    <i id="launches-chevron" class="ph ph-caret-down text-gray-400 text-lg transition-transform duration-200"></i>
-                </button>
-                <div id="launches-accordion" class="hidden mt-4 pt-4 border-t border-gray-100 space-y-4">
-            `;
-            launches.forEach(lp => {
-                const pct = lp.meta > 0 ? (lp.realizado / lp.meta) * 100 : 0;
-                const color = pct >= 100 ? 'bg-green-500' : 'bg-brand-light';
-                html += `
-                <div>
-                    <div class="flex justify-between text-xs font-semibold mb-1">
-                        <span class="text-gray-700">${lp.nome_produto}</span>
-                        <span class="text-gray-500">${lp.realizado} / ${lp.meta}</span>
-                    </div>
-                    <div class="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                        <div class="${color} h-2.5 rounded-full progress-fill" style="width: ${pct}%"></div>
-                    </div>
-                </div>
-                `;
-            });
-            html += `</div></div>`;
-        } else {
-            html += `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mt-4">
-                <button class="w-full flex justify-between items-center text-left focus:outline-none" onclick="toggleAccordion('launches-accordion', 'launches-chevron')">
-                    <h3 class="font-semibold text-gray-700 flex items-center">
-                        <i class="ph ph-rocket text-xl mr-2 text-brand"></i>
-                        Lançamentos e Produtos Foco
-                    </h3>
-                    <i id="launches-chevron" class="ph ph-caret-down text-gray-400 text-lg transition-transform duration-200"></i>
-                </button>
-                <div id="launches-accordion" class="hidden mt-4 pt-4 border-t border-gray-100 text-center text-sm text-gray-500">
-                    Nenhum lançamento adicional cadastrado.
-                </div>
-            </div>
-            `;
-        }
-        
         cardsContainer.innerHTML = html;
         
-        // 5. Render Launches List for management
+        // --- POPULA ACORDEÃO DE SKUs ---
+        const skusContainer = document.getElementById('skus-list');
+        if (skusContainer) {
+            const skusData = data.skus || {};
+            
+            const cervejaSKUs = [
+                "Cerpa Long Neck",
+                "Therezópolis LN 355ml",
+                "Therezópolis Lata 350ml",
+                "Therezópolis Lata 473ml",
+                "Therezópolis Vidro 500ml",
+                "Therezópolis Vidro 600ml",
+                "Estrella Galicia LN 330ml",
+                "Estrella Galicia Lata 350ml",
+                "Estrella Galicia Lata 473ml",
+                "Estrella Galicia Vidro 600ml",
+                "Tijuca Lata 350ml",
+                "Tijuca Vidro 600ml"
+            ];
+            
+            const alcoolicosSKUs = [
+                "Campari 900ml",
+                "Skyy Vodka 750ml",
+                "Dreher 900ml",
+                "Sagatiba",
+                "Aperol"
+            ];
+            
+            const drinksSKUs = [
+                "Jack & Coke Lata 269ml",
+                "Absolut & Sprite Lata 269ml",
+                "Schweppes Mixer Lata 269ml"
+            ];
+            
+            let skusHtml = '';
+            
+            const buildCategorySkuList = (title, items, prefix) => {
+                let itemsHtml = `<div class="mb-4 last:mb-0">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">${title}</h4>
+                    <div class="space-y-2">`;
+                items.forEach(item => {
+                    const key = `${prefix}:${item}`;
+                    const count = skusData[key] || 0;
+                    itemsHtml += `
+                        <div class="flex justify-between text-xs py-1 border-b border-gray-50">
+                            <span class="text-gray-700">${item}</span>
+                            <span class="text-brand font-bold">${count} ${count === 1 ? 'cliente' : 'clientes'}</span>
+                        </div>
+                    `;
+                });
+                itemsHtml += `</div></div>`;
+                return itemsHtml;
+            };
+            
+            skusHtml += buildCategorySkuList('Cervejas', cervejaSKUs, 'cervejas');
+            skusHtml += buildCategorySkuList('Alcoólicos', alcoolicosSKUs, 'alcoolicos');
+            skusHtml += buildCategorySkuList('Drinks (ARTD)', drinksSKUs, 'drinks');
+            
+            skusContainer.innerHTML = skusHtml;
+        }
+        
+        // --- POPULA LISTA DE GERENCIAMENTO DE PRODUTOS FOCO ---
         if (launches && launches.length > 0) {
-            launchesList.innerHTML = launches.map(lp => `
-                <li class="p-3 bg-white flex justify-between items-center text-sm border-b border-gray-50 last:border-0">
-                    <div class="flex flex-col">
-                        <span class="font-medium text-gray-700">${lp.nome_produto}</span>
-                        <span class="text-[10px] text-gray-400 font-semibold">Meta de Positivação: ${lp.meta} clientes</span>
+            launchesList.innerHTML = launches.map(lp => {
+                const pct = lp.meta > 0 ? (lp.realizado / lp.meta) * 100 : 0;
+                const color = pct >= 100 ? 'bg-green-500' : 'bg-brand-light';
+                return `
+                <li class="p-3 bg-white border-b border-gray-50 last:border-0">
+                    <div class="flex justify-between items-center text-sm mb-1.5">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-700">${lp.nome_produto}</span>
+                            <span class="text-[10px] text-gray-400 font-semibold">Objetivo: ${lp.meta} clientes</span>
+                        </div>
+                        <span class="text-xs font-bold text-gray-600">${lp.realizado} / ${lp.meta}</span>
                     </div>
-                    <span class="text-xs px-2 py-0.5 rounded bg-green-50 text-green-600 font-semibold uppercase">Ativo</span>
+                    <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                        <div class="${color} h-2 rounded-full progress-fill" style="width: ${pct}%"></div>
+                    </div>
                 </li>
-            `).join('');
+                `;
+            }).join('');
         } else {
-            launchesList.innerHTML = `<li class="p-4 text-center text-sm text-gray-500">Nenhum lançamento cadastrado</li>`;
+            launchesList.innerHTML = `<li class="p-3 text-center text-sm text-gray-500">Nenhum foco sazonal ativo</li>`;
         }
         
     } catch(err) {
+        console.error(err);
         cardsContainer.innerHTML = `<div class="p-4 bg-red-50 text-red-800 rounded-lg text-sm">Erro ao carregar metas dinâmicas.</div>`;
     }
 }
@@ -754,5 +890,46 @@ async function handleAddProduct(e) {
         alert("Erro de conexão ao adicionar produto.");
     } finally {
         btn.innerHTML = origText;
+    }
+}
+
+// --- Dynamic Checklist UI Helpers ---
+function toggleSublist(category) {
+    const content = document.getElementById(`sublist-${category}`);
+    const chevron = document.getElementById(`chevron-${category}`);
+    if (!content || !chevron) return;
+    if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        chevron.classList.remove('rotate-180');
+    } else {
+        content.classList.add('expanded');
+        chevron.classList.add('rotate-180');
+    }
+}
+
+async function toggleCategory(category) {
+    const chk = document.getElementById(`chk-${category}`);
+    if (!chk) return;
+    const val = chk.checked;
+    
+    if (!val) {
+        const sublist = document.getElementById(`sublist-${category}`);
+        if (sublist) {
+            sublist.querySelectorAll('input[type="checkbox"]').forEach(subChk => {
+                subChk.checked = false;
+            });
+        }
+    }
+}
+
+function saveSubItem(category, subitem) {
+    const chk = document.getElementById("chk-" + category + ":" + subitem);
+    if (chk && chk.checked) {
+        const parentChk = document.getElementById("chk-" + category);
+        if (parentChk && !parentChk.checked) {
+            parentChk.checked = true;
+            // Trigger HTMX on parent to save it to database!
+            htmx.trigger(parentChk, 'change');
+        }
     }
 }
