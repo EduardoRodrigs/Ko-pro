@@ -303,8 +303,8 @@ async def upload_csv(file: UploadFile = File(...), rota: str = Form(...), db: Se
                     'longitude': parse_float(row.get(header_map['longitude'])) if 'longitude' in header_map else None
                 })
         
-        # Clear old database records as requested
-        db.query(Cliente).delete()
+        # Clear only this route's database records to support multiple routes
+        db.query(Cliente).filter(Cliente.rota == rota).delete()
         
         # Save to DB
         for item in rows_to_process:
@@ -323,7 +323,8 @@ async def upload_csv(file: UploadFile = File(...), rota: str = Form(...), db: Se
                 novo_dia=item['novo_dia'],
                 nova_semana=item['nova_semana'],
                 latitude=item.get('latitude'),
-                longitude=item.get('longitude')
+                longitude=item.get('longitude'),
+                rota=rota
             )
             db.add(cliente)
         db.commit()
@@ -378,9 +379,13 @@ async def get_metas(db: Session = Depends(get_db)):
         "meta_cerveja_lata": meta.meta_cerveja_lata,
         "meta_artd": meta.meta_artd,
         "meta_monster": meta.meta_monster,
-        "meta_perfetti": meta.meta_perfetti,
         "meta_campari": meta.meta_campari
     }
+
+@app.get("/api/rotas")
+async def get_rotas(db: Session = Depends(get_db)):
+    rotas_query = db.query(Cliente.rota).distinct().all()
+    return sorted([r[0] for r in rotas_query if r[0]])
 
 @app.get("/api/clientes")
 async def get_clientes(
@@ -389,9 +394,12 @@ async def get_clientes(
     status_meta: str = None, 
     user_lat: float = None, 
     user_lng: float = None, 
+    rota: str = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Cliente)
+    if rota:
+        query = query.filter(Cliente.rota == rota)
     if dia:
         query = query.filter(Cliente.novo_dia == dia)
     if semana:
@@ -546,22 +554,36 @@ async def get_cliente_data(cod_cliente: str, db: Session = Depends(get_db)):
     ).all()
     
     checked_state = {}
+    prod_map = {p.id: p.nome_produto for p in products}
+    core_names = ("Cervejas", "Drinks", "Sempre Juntos", "Monster", "Perfetti", "Alcoólicos", "Campari")
+    
     for prod in products:
-        checked_state[str(prod.id)] = False
-        if prod.nome_produto == "Cervejas":
-            checked_state["cerveja_600ml"] = False
-            checked_state["cerveja_ln"] = False
-            checked_state["cerveja_lata"] = False
-            checked_state["master_cervejas"] = False
+        prod_name = prod.nome_produto
+        if prod_name in core_names:
+            prod_key = prod_name.lower().replace("á", "a").replace("ó", "o").replace(" ", "_")
+            if prod_key == "campari":
+                prod_key = "alcoolicos"
+            checked_state[prod_key] = False
+        else:
+            checked_state[f"prod_{prod.id}"] = False
             
     for rec in pos_records:
-        if rec.sub_item:
-            checked_state[f"cerveja_{rec.sub_item}"] = True
-            checked_state["master_cervejas"] = True
+        prod_name = prod_map.get(rec.produto_id)
+        if not prod_name:
+            continue
+        
+        if prod_name in core_names:
+            prod_key = prod_name.lower().replace("á", "a").replace("ó", "o").replace(" ", "_")
+            if prod_key == "campari":
+                prod_key = "alcoolicos"
+            
+            if rec.sub_item:
+                checked_state[f"{prod_key}:{rec.sub_item}"] = True
+                checked_state[prod_key] = True
+            else:
+                checked_state[prod_key] = True
         else:
-            checked_state[str(rec.produto_id)] = True
-            if rec.produto_id == 1:
-                checked_state["master_cervejas"] = True
+            checked_state[f"prod_{rec.produto_id}"] = True
             
     return {
         "cliente": {
@@ -590,17 +612,36 @@ async def update_positivacao(cod_cliente: str, request: Request, db: Session = D
         if key == 'sempre_juntos':
             prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Sempre Juntos").first()
             if prod: produto_id = prod.id
-        elif key == 'drinks':
+        elif key in ('cervejas', 'cerveja_total'):
+            prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Cervejas").first()
+            if prod: produto_id = prod.id
+        elif key in ('alcoolicos', 'alcoolicos_total'):
+            prod = db.query(ProdutoMeta).filter((ProdutoMeta.nome_produto == "Alcoólicos") | (ProdutoMeta.nome_produto == "Campari")).first()
+            if prod: produto_id = prod.id
+        elif key in ('drinks', 'drinks_total'):
             prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Drinks").first()
             if prod: produto_id = prod.id
-        elif key == 'cerveja_total':
-            prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Cervejas").first()
+        elif key == 'monster':
+            prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Monster").first()
             if prod: produto_id = prod.id
-        elif key in ('cerveja_600ml', 'cerveja_ln', 'cerveja_lata'):
-            prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Cervejas").first()
-            if prod:
-                produto_id = prod.id
-                sub_item = key.replace('cerveja_', '')
+        elif key == 'perfetti':
+            prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Perfetti").first()
+            if prod: produto_id = prod.id
+        elif ":" in key:
+            prefix, sub_name = key.split(":", 1)
+            prod_name = None
+            if prefix == 'cervejas':
+                prod_name = "Cervejas"
+            elif prefix == 'drinks':
+                prod_name = "Drinks"
+            elif prefix == 'alcoolicos':
+                prod_name = "Alcoólicos"
+                
+            if prod_name:
+                prod = db.query(ProdutoMeta).filter((ProdutoMeta.nome_produto == prod_name) | (ProdutoMeta.nome_produto == "Campari" if prod_name == "Alcoólicos" else False)).first()
+                if prod:
+                    produto_id = prod.id
+                    sub_item = sub_name.strip()
         elif key.startswith('prod_'):
             try:
                 produto_id = int(key.replace('prod_', ''))
@@ -631,8 +672,8 @@ async def update_positivacao(cod_cliente: str, request: Request, db: Session = D
                 
             record.valor = bool(val)
             
-            # If Cervejas master was unchecked, uncheck sub-items
-            if key == 'cerveja_total' and not val:
+            # If master was unchecked, uncheck all sub-items under this product
+            if key in ('cervejas', 'cerveja_total', 'alcoolicos', 'alcoolicos_total', 'drinks', 'drinks_total') and not val:
                 db.query(PositivacaoDinamica).filter(
                     PositivacaoDinamica.cod_cliente == cod_cliente,
                     PositivacaoDinamica.mes_ano == current_month,
@@ -665,7 +706,7 @@ async def add_produto(nome_produto: str = Form(...), meta_quantidade: int = Form
     }
 
 @app.get("/api/dashboard")
-async def get_dashboard(db: Session = Depends(get_db)):
+async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
     current_month = get_current_month()
     
     meta = db.query(MetaMensal).filter(MetaMensal.mes_ano == current_month).first()
@@ -685,10 +726,19 @@ async def get_dashboard(db: Session = Depends(get_db)):
         )
         db.add(meta)
         db.commit()
+
+    if not rota:
+        first_client = db.query(Cliente).first()
+        if first_client:
+            rota = first_client.rota
         
-    total_clients = db.query(Cliente).count()
+    query_clients = db.query(Cliente)
+    if rota:
+        query_clients = query_clients.filter(Cliente.rota == rota)
+        
+    total_clients = query_clients.count()
     canais_validos = ['Bar', 'Lanchonete', 'Restaurante', 'Padaria', 'Mercearia']
-    clientes_validos_count = db.query(Cliente).filter(Cliente.canal_resumido.in_(canais_validos)).count()
+    clientes_validos_count = query_clients.filter(Cliente.canal_resumido.in_(canais_validos)).count()
     
     products = db.query(ProdutoMeta).all()
     
@@ -700,93 +750,156 @@ async def get_dashboard(db: Session = Depends(get_db)):
     prod_drinks = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Drinks").first()
     
     if prod_sj:
-        sj_count = db.query(PositivacaoDinamica).join(
+        sj_query = db.query(PositivacaoDinamica).join(
             Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
         ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == prod_sj.id,
             PositivacaoDinamica.valor == True,
             Cliente.canal_resumido.in_(canais_validos)
-        ).count()
-        
+        )
+        if rota:
+            sj_query = sj_query.filter(Cliente.rota == rota)
+            
+        sj_count = sj_query.count()
         sj_pct = round((sj_count / clientes_validos_count * 100), 1) if clientes_validos_count > 0 else 0.0
         realizado["sempre_juntos_pct"] = sj_pct
         metas_dict["sempre_juntos_pct"] = meta.meta_sempre_juntos_pct
         
     if prod_cervejas:
-        cv_count = db.query(PositivacaoDinamica.cod_cliente).filter(
+        cv_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == prod_cervejas.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
-        
+        )
+        if rota:
+            cv_query = cv_query.filter(Cliente.rota == rota)
+            
+        cv_count = cv_query.distinct().count()
         realizado["cerveja_total"] = cv_count
         metas_dict["cerveja_total"] = meta.meta_cerveja_total
         
-        for sub in ('600ml', 'ln', 'lata'):
-            count = db.query(PositivacaoDinamica).filter(
-                PositivacaoDinamica.mes_ano == current_month,
-                PositivacaoDinamica.produto_id == prod_cervejas.id,
-                PositivacaoDinamica.sub_item == sub,
-                PositivacaoDinamica.valor == True
-            ).count()
-            realizado[f"cerveja_{sub}"] = count
-            metas_dict[f"cerveja_{sub}"] = getattr(meta, f"meta_cerveja_{sub}", 10)
+        # Pull sub-items positive checks to aggregate dynamically
+        sub_query = db.query(PositivacaoDinamica).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
+            PositivacaoDinamica.mes_ano == current_month,
+            PositivacaoDinamica.produto_id == prod_cervejas.id,
+            PositivacaoDinamica.valor == True
+        )
+        if rota:
+            sub_query = sub_query.filter(Cliente.rota == rota)
+            
+        cervejas_pos = sub_query.all()
+        c_600ml_clients = set()
+        c_ln_clients = set()
+        c_lata_clients = set()
+        
+        for p_rec in cervejas_pos:
+            sub = (p_rec.sub_item or '').lower()
+            if not sub:
+                continue
+            if '600ml' in sub or '500ml' in sub or 'vidro' in sub:
+                c_600ml_clients.add(p_rec.cod_cliente)
+            elif 'ln' in sub or 'long neck' in sub:
+                c_ln_clients.add(p_rec.cod_cliente)
+            elif 'lata' in sub:
+                c_lata_clients.add(p_rec.cod_cliente)
+                
+        realizado["cerveja_600ml"] = len(c_600ml_clients)
+        realizado["cerveja_ln"] = len(c_ln_clients)
+        realizado["cerveja_lata"] = len(c_lata_clients)
+        
+        metas_dict["cerveja_600ml"] = meta.meta_cerveja_600ml
+        metas_dict["cerveja_ln"] = meta.meta_cerveja_ln
+        metas_dict["cerveja_lata"] = meta.meta_cerveja_lata
             
     if prod_drinks:
-        drinks_count = db.query(PositivacaoDinamica.cod_cliente).filter(
+        drinks_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == prod_drinks.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
+        )
+        if rota:
+            drinks_query = drinks_query.filter(Cliente.rota == rota)
+            
+        drinks_count = drinks_query.distinct().count()
         realizado["drinks"] = drinks_count
         metas_dict["drinks"] = meta.meta_artd
         
     prod_monster = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Monster").first()
     if prod_monster:
-        monster_count = db.query(PositivacaoDinamica.cod_cliente).filter(
+        monster_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == prod_monster.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
+        )
+        if rota:
+            monster_query = monster_query.filter(Cliente.rota == rota)
+            
+        monster_count = monster_query.distinct().count()
         realizado["monster"] = monster_count
         metas_dict["monster"] = meta.meta_monster
         
     prod_perfetti = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Perfetti").first()
     if prod_perfetti:
-        perfetti_count = db.query(PositivacaoDinamica.cod_cliente).filter(
+        perfetti_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == prod_perfetti.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
+        )
+        if rota:
+            perfetti_query = perfetti_query.filter(Cliente.rota == rota)
+            
+        perfetti_count = perfetti_query.distinct().count()
         realizado["perfetti"] = perfetti_count
         metas_dict["perfetti"] = meta.meta_perfetti
         
-    prod_campari = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Campari").first()
-    if prod_campari:
-        campari_count = db.query(PositivacaoDinamica.cod_cliente).filter(
+    prod_alcoolicos = db.query(ProdutoMeta).filter((ProdutoMeta.nome_produto == "Alcoólicos") | (ProdutoMeta.nome_produto == "Campari")).first()
+    if prod_alcoolicos:
+        alcoolicos_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
-            PositivacaoDinamica.produto_id == prod_campari.id,
+            PositivacaoDinamica.produto_id == prod_alcoolicos.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
-        realizado["campari"] = campari_count
+        )
+        if rota:
+            alcoolicos_query = alcoolicos_query.filter(Cliente.rota == rota)
+            
+        alcoolicos_count = alcoolicos_query.distinct().count()
+        realizado["campari"] = alcoolicos_count
         metas_dict["campari"] = meta.meta_campari
         
-    dynamic_products = [p for p in products if p.nome_produto not in ("Cervejas", "Drinks", "Sempre Juntos", "Monster", "Perfetti", "Campari")]
+    dynamic_products = [p for p in products if p.nome_produto not in ("Cervejas", "Drinks", "Sempre Juntos", "Monster", "Perfetti", "Campari", "Alcoólicos")]
     launches_realizado = []
     
     for lp in dynamic_products:
-        count = db.query(PositivacaoDinamica.cod_cliente).filter(
+        lp_query = db.query(PositivacaoDinamica.cod_cliente).join(
+            Cliente, Cliente.cod_cliente == PositivacaoDinamica.cod_cliente
+        ).filter(
             PositivacaoDinamica.mes_ano == current_month,
             PositivacaoDinamica.produto_id == lp.id,
             PositivacaoDinamica.valor == True
-        ).distinct().count()
+        )
+        if rota:
+            lp_query = lp_query.filter(Cliente.rota == rota)
+            
+        count = lp_query.distinct().count()
         
         launches_realizado.append({
             "id": lp.id,
             "nome_produto": lp.nome_produto,
             "realizado": count,
-            "meta": 10
+            "meta": lp.meta_quantidade or 10
         })
         
     return {

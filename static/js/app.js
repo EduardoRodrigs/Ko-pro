@@ -12,13 +12,61 @@ function showToast(message) {
     }, 2000);
 }
 
+// --- Route Selector Logic ---
+async function initRouteSelector() {
+    const routeSelect = document.getElementById('filter-route');
+    if (!routeSelect) return;
+    
+    try {
+        const res = await fetch('/api/rotas');
+        const rotas = await res.json();
+        
+        if (rotas && rotas.length > 0) {
+            routeSelect.innerHTML = rotas.map(r => `<option value="${r}">${r}</option>`).join('');
+            
+            let activeRoute = localStorage.getItem('activeRoute');
+            if (!activeRoute || !rotas.includes(activeRoute)) {
+                activeRoute = rotas[0];
+                localStorage.setItem('activeRoute', activeRoute);
+            }
+            routeSelect.value = activeRoute;
+        } else {
+            routeSelect.innerHTML = '<option value="">Nenhuma rota carregada</option>';
+        }
+    } catch (e) {
+        console.error("Erro ao carregar rotas:", e);
+        routeSelect.innerHTML = '<option value="">Erro ao carregar rotas</option>';
+    }
+}
+
+function changeRoute(routeVal) {
+    if (!routeVal) return;
+    localStorage.setItem('activeRoute', routeVal);
+    
+    if (document.getElementById('client-list')) {
+        if (typeof resetOptimizeState === 'function') resetOptimizeState();
+        loadClientes();
+    }
+    if (document.getElementById('metas-progress-cards')) {
+        loadMetasOperationalPage();
+    }
+}
+
 // --- Dashboard Logic ---
 async function loadDashboard() {
     const container = document.getElementById('dashboard-cards');
     if(!container) return;
 
+    container.innerHTML = `
+        <div class="animate-pulse flex flex-col space-y-4">
+            <div class="h-24 bg-gray-200 rounded-xl"></div>
+            <div class="h-24 bg-gray-200 rounded-xl"></div>
+        </div>
+    `;
+
     try {
-        const res = await fetch('/api/dashboard');
+        const activeRoute = localStorage.getItem('activeRoute') || '';
+        const res = await fetch(`/api/dashboard?rota=${activeRoute}`);
         const data = await res.json();
         
         if (data.error) {
@@ -50,7 +98,7 @@ async function loadDashboard() {
                 ${createMiniBar('600ml', real.cerveja_600ml, metas.cerveja_600ml)}
                 ${createMiniBar('Long Neck', real.cerveja_ln, metas.cerveja_ln)}
                 ${createMiniBar('Lata', real.cerveja_lata, metas.cerveja_lata)}
-                ${createMiniBar('ARTD', real.artd, metas.artd)}
+                ${createMiniBar('ARTD', real.drinks, metas.drinks)}
                 ${createMiniBar('Monster', real.monster, metas.monster)}
                 ${createMiniBar('Perfetti', real.perfetti, metas.perfetti)}
                 ${createMiniBar('Alcoólicos', real.campari, metas.campari)}
@@ -107,9 +155,14 @@ async function loadClientes() {
     const list = document.getElementById('client-list');
     if(!list) return;
 
+    list.innerHTML = `<li class="p-4 text-center bg-white rounded-xl border border-gray-100 text-gray-400 text-sm animate-pulse">Carregando clientes...</li>`;
+    const countSpan = document.getElementById('client-count');
+    if (countSpan) countSpan.textContent = "...";
+
     const meta = document.getElementById('filter-meta') ? document.getElementById('filter-meta').value : 'todos';
     
-    let url = '/api/clientes?';
+    const activeRoute = localStorage.getItem('activeRoute') || '';
+    let url = `/api/clientes?rota=${activeRoute}&`;
     if(currentDia) url += `dia=${currentDia}&`;
     if(currentSemana) url += `semana=${currentSemana}&`;
     if(meta) url += `status_meta=${meta}&`;
@@ -411,43 +464,39 @@ async function loadClienteData(cod) {
         const prodRes = await fetch('/api/produtos');
         const products = await prodRes.json();
         
-        const prodSj = products.find(prod => prod.nome_produto === "Sempre Juntos");
-        const prodCervejas = products.find(prod => prod.nome_produto === "Cervejas");
-        const prodDrinks = products.find(prod => prod.nome_produto === "Drinks");
-        
-        if (prodSj && document.getElementById('chk-sempre_juntos')) {
-            document.getElementById('chk-sempre_juntos').checked = p[String(prodSj.id)] === true;
-        }
-        if (prodDrinks && document.getElementById('chk-drinks')) {
-            document.getElementById('chk-drinks').checked = p[String(prodDrinks.id)] === true;
-        }
-        
-        // Cervejas Master & sub-items
-        if (document.getElementById('chk-cerveja_600ml')) {
-            document.getElementById('chk-cerveja_600ml').checked = p["cerveja_600ml"] === true;
-        }
-        if (document.getElementById('chk-cerveja_ln')) {
-            document.getElementById('chk-cerveja_ln').checked = p["cerveja_ln"] === true;
-        }
-        if (document.getElementById('chk-cerveja_lata')) {
-            document.getElementById('chk-cerveja_lata').checked = p["cerveja_lata"] === true;
-        }
-        if (document.getElementById('chk-master-cervejas')) {
-            document.getElementById('chk-master-cervejas').checked = p["master_cervejas"] === true;;
-            if(p["master_cervejas"] === true) {
-                document.getElementById('sub-cervejas').classList.add('expanded');
+        // Fill static checklist checkboxes (Sempre Juntos, Cervejas, Alcoólicos, Drinks, Monster, Perfetti, and sub-items)
+        document.querySelectorAll('#checklist-container input[type="checkbox"]').forEach(chk => {
+            if (chk.id.startsWith('chk-prod_')) return;
+            
+            const key = chk.id.replace('chk-', '');
+            if (p[key] !== undefined) {
+                chk.checked = p[key] === true;
+                // If this is a category checklist master container and it's checked, expand its sublist
+                if (p[key] === true && (key === 'cervejas' || key === 'alcoolicos' || key === 'drinks')) {
+                    const subContainer = document.getElementById(`sublist-${key}`);
+                    const chevron = document.getElementById(`chevron-${key}`);
+                    if (subContainer) subContainer.classList.add('expanded');
+                    if (chevron) chevron.classList.add('rotate-180');
+                }
+            } else {
+                chk.checked = false;
             }
-        }
+        });
         
         // Dynamic Launches Checklist rendering
         const launchesContainer = document.getElementById('dynamic-launches-checklist');
         if (launchesContainer) {
             launchesContainer.innerHTML = '';
             
+            // Filter out core products
             const dynamicLaunches = products.filter(prod => 
                 prod.nome_produto !== "Cervejas" && 
                 prod.nome_produto !== "Drinks" && 
-                prod.nome_produto !== "Sempre Juntos"
+                prod.nome_produto !== "Sempre Juntos" &&
+                prod.nome_produto !== "Monster" &&
+                prod.nome_produto !== "Perfetti" &&
+                prod.nome_produto !== "Alcoólicos" &&
+                prod.nome_produto !== "Campari"
             );
             
             if (dynamicLaunches.length > 0) {
@@ -461,7 +510,7 @@ async function loadClienteData(cod) {
                 launchesContainer.appendChild(title);
                 
                 dynamicLaunches.forEach(prod => {
-                    const isChecked = p[String(prod.id)] === true;
+                    const isChecked = p[String(prod.id)] === true || p[`prod_${prod.id}`] === true;
                     const lbl = document.createElement('label');
                     lbl.className = "custom-checkbox-container";
                     lbl.innerHTML = `
@@ -504,9 +553,18 @@ async function loadMetasOperationalPage() {
     const launchesList = document.getElementById('launches-list');
     
     if(!cardsContainer || !launchesList) return;
+
+    cardsContainer.innerHTML = `
+        <div class="animate-pulse flex flex-col space-y-4">
+            <div class="h-24 bg-gray-200 rounded-xl"></div>
+            <div class="h-24 bg-gray-200 rounded-xl"></div>
+        </div>
+    `;
+    launchesList.innerHTML = `<li class="p-3 text-center text-sm text-gray-400 animate-pulse">Carregando...</li>`;
     
     try {
-        const res = await fetch('/api/dashboard');
+        const activeRoute = localStorage.getItem('activeRoute') || '';
+        const res = await fetch(`/api/dashboard?rota=${activeRoute}`);
         const data = await res.json();
         
         if (data.error) {

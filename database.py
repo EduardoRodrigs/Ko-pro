@@ -28,6 +28,7 @@ class Cliente(Base):
     nova_semana = Column(String)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    rota = Column(String, index=True, nullable=True)
 
 class MetaMensal(Base):
     __tablename__ = "metas_mensais"
@@ -77,16 +78,26 @@ def init_db():
             conn.execute(text("ALTER TABLE positivacoes_dinamicas ADD COLUMN data_registro TIMESTAMP;"))
         except Exception:
             pass
+        try:
+            conn.execute(text("ALTER TABLE clientes ADD COLUMN rota VARCHAR;"))
+        except Exception:
+            pass
     # Populate initial products
     db = SessionLocal()
     try:
+        # Check if Campari needs to be renamed to Alcoólicos
+        campari_prod = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Campari").first()
+        if campari_prod:
+            campari_prod.nome_produto = "Alcoólicos"
+            db.commit()
+            
         defaults = [
             ("Cervejas", False),
             ("Drinks", False),
             ("Sempre Juntos", True),
             ("Monster", False),
             ("Perfetti", False),
-            ("Campari", False)
+            ("Alcoólicos", False)
         ]
         for name, req_sj in defaults:
             exists = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == name).first()

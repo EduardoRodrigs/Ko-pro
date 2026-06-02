@@ -136,3 +136,25 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), inset 0 1px 2px rgba(0, 0, 0, 0.02) !important;
     border-color: rgba(220, 38, 38, 0.2) !important;
 }
+
+/* Sub Checkbox Styling */
+.sub-checkbox-container {
+    padding-left: 38px !important;
+    font-size: 0.9rem !important;
+    min-height: 24px !important;
+    margin-bottom: 8px !important;
+}
+
+.sub-checkbox-container .checkmark {
+    height: 24px !important;
+    width: 24px !important;
+    border-radius: 6px !important;
+}
+
+.sub-checkbox-container .checkmark:after {
+    left: 7px !important;
+    top: 3px !important;
+    width: 6px !important;
+    height: 12px !important;
+    border-width: 0 2.5px 2.5px 0 !important;
+}

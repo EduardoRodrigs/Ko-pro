@@ -27,43 +27,155 @@
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-8">
     <h3 class="font-semibold text-gray-700 mb-4 border-b border-gray-100 pb-2">Checklist de Positivação</h3>
     
-    <div id="checklist-container" class="space-y-1">
+    <div id="checklist-container" class="space-y-3">
         <!-- Sempre Juntos (Condicional) -->
-        <div id="container-sempre-juntos" class="hidden">
-            <label class="custom-checkbox-container">Sempre Juntos
+        <div id="container-sempre-juntos" class="hidden pb-2 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800">Sempre Juntos
                 <input type="checkbox" id="chk-sempre_juntos" onchange="saveCheck('sempre_juntos')">
                 <span class="checkmark"></span>
             </label>
         </div>
 
-        <div class="my-4 border-t border-gray-100"></div>
+        <!-- Cervejas Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Cervejas
+                    <input type="checkbox" id="chk-cervejas" onchange="toggleCategory('cervejas')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('cervejas')">
+                    <i id="chevron-cervejas" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-cervejas" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Cerpa Long Neck
+                    <input type="checkbox" id="chk-cervejas:Cerpa Long Neck" onchange="saveSubItem('cervejas', 'Cerpa Long Neck')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis LN 355ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis LN 355ml" onchange="saveSubItem('cervejas', 'Therezópolis LN 355ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Lata 350ml" onchange="saveSubItem('cervejas', 'Therezópolis Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Lata 473ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Lata 473ml" onchange="saveSubItem('cervejas', 'Therezópolis Lata 473ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Vidro 500ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Vidro 500ml" onchange="saveSubItem('cervejas', 'Therezópolis Vidro 500ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Therezópolis Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Therezópolis Vidro 600ml" onchange="saveSubItem('cervejas', 'Therezópolis Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia LN 330ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia LN 330ml" onchange="saveSubItem('cervejas', 'Estrella Galicia LN 330ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Lata 350ml" onchange="saveSubItem('cervejas', 'Estrella Galicia Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Lata 473ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Lata 473ml" onchange="saveSubItem('cervejas', 'Estrella Galicia Lata 473ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Estrella Galicia Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Estrella Galicia Vidro 600ml" onchange="saveSubItem('cervejas', 'Estrella Galicia Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Tijuca Lata 350ml
+                    <input type="checkbox" id="chk-cervejas:Tijuca Lata 350ml" onchange="saveSubItem('cervejas', 'Tijuca Lata 350ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Tijuca Vidro 600ml
+                    <input type="checkbox" id="chk-cervejas:Tijuca Vidro 600ml" onchange="saveSubItem('cervejas', 'Tijuca Vidro 600ml')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
 
-        <!-- Master Cervejas -->
-        <label class="custom-checkbox-container font-semibold text-gray-800">Cervejas
-            <input type="checkbox" id="chk-master-cervejas" onchange="toggleCervejas()">
-            <span class="checkmark"></span>
-        </label>
-        
-        <!-- Sub Cervejas -->
-        <div id="sub-cervejas" class="expandable-content pl-6 border-l-2 border-gray-100 ml-4 mb-4">
-            <label class="custom-checkbox-container mt-2">600ml
-                <input type="checkbox" id="chk-cerveja_600ml" onchange="saveCheck('cerveja_600ml')">
-                <span class="checkmark"></span>
-            </label>
-            <label class="custom-checkbox-container">Long Neck
-                <input type="checkbox" id="chk-cerveja_ln" onchange="saveCheck('cerveja_ln')">
-                <span class="checkmark"></span>
-            </label>
-            <label class="custom-checkbox-container">Lata
-                <input type="checkbox" id="chk-cerveja_lata" onchange="saveCheck('cerveja_lata')">
+        <!-- Alcoólicos Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Alcoólicos
+                    <input type="checkbox" id="chk-alcoolicos" onchange="toggleCategory('alcoolicos')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('alcoolicos')">
+                    <i id="chevron-alcoolicos" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-alcoolicos" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Campari 900ml
+                    <input type="checkbox" id="chk-alcoolicos:Campari 900ml" onchange="saveSubItem('alcoolicos', 'Campari 900ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Skyy Vodka 750ml
+                    <input type="checkbox" id="chk-alcoolicos:Skyy Vodka 750ml" onchange="saveSubItem('alcoolicos', 'Skyy Vodka 750ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Dreher 900ml
+                    <input type="checkbox" id="chk-alcoolicos:Dreher 900ml" onchange="saveSubItem('alcoolicos', 'Dreher 900ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Sagatiba
+                    <input type="checkbox" id="chk-alcoolicos:Sagatiba" onchange="saveSubItem('alcoolicos', 'Sagatiba')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Aperol
+                    <input type="checkbox" id="chk-alcoolicos:Aperol" onchange="saveSubItem('alcoolicos', 'Aperol')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Drinks Categoria -->
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between py-1 border-b border-gray-100">
+                <label class="custom-checkbox-container font-semibold text-gray-800 flex-1 mb-0 pb-0">Drinks
+                    <input type="checkbox" id="chk-drinks" onchange="toggleCategory('drinks')">
+                    <span class="checkmark"></span>
+                </label>
+                <button class="p-2 text-gray-400 hover:text-brand focus:outline-none flex items-center justify-center" onclick="toggleSublist('drinks')">
+                    <i id="chevron-drinks" class="ph ph-caret-down text-lg transition-transform duration-200"></i>
+                </button>
+            </div>
+            <div id="sublist-drinks" class="expandable-content pl-4 border-l-2 border-gray-100 ml-4 space-y-1">
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Jack & Coke Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Jack & Coke Lata 269ml" onchange="saveSubItem('drinks', 'Jack & Coke Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Absolut & Sprite Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Absolut & Sprite Lata 269ml" onchange="saveSubItem('drinks', 'Absolut & Sprite Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="custom-checkbox-container sub-checkbox-container text-gray-600">Schweppes Mixer Lata 269ml
+                    <input type="checkbox" id="chk-drinks:Schweppes Mixer Lata 269ml" onchange="saveSubItem('drinks', 'Schweppes Mixer Lata 269ml')">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Monster (Clique Direto) -->
+        <div class="py-1 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800 mb-0 pb-0">Monster
+                <input type="checkbox" id="chk-monster" onchange="saveCheck('monster')">
                 <span class="checkmark"></span>
             </label>
         </div>
 
-        <label class="custom-checkbox-container">Drinks
-            <input type="checkbox" id="chk-drinks" onchange="saveCheck('drinks')">
-            <span class="checkmark"></span>
-        </label>
+        <!-- Perfetti (Clique Direto) -->
+        <div class="py-1 border-b border-gray-100">
+            <label class="custom-checkbox-container font-semibold text-gray-800 mb-0 pb-0">Perfetti
+                <input type="checkbox" id="chk-perfetti" onchange="saveCheck('perfetti')">
+                <span class="checkmark"></span>
+            </label>
+        </div>
 
         <!-- Dynamic Launch Products Container -->
         <div id="dynamic-launches-checklist" class="space-y-1">
@@ -73,7 +185,7 @@
 </div>
 
 <!-- Saving indicator -->
-<div id="save-toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium opacity-0 transition-opacity duration-300 pointer-events-none">
+<div id="save-toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium opacity-0 transition-opacity duration-300 pointer-events-none z-50">
     Salvando...
 </div>
 
@@ -88,23 +200,63 @@
         loadClienteData(codCliente);
     });
 
-    function toggleCervejas() {
-        const master = document.getElementById('chk-master-cervejas');
-        const subContainer = document.getElementById('sub-cervejas');
-        const subs = ['chk-cerveja_600ml', 'chk-cerveja_ln', 'chk-cerveja_lata'];
-        
-        if (master.checked) {
-            subContainer.classList.add('expanded');
+    function toggleSublist(category) {
+        const content = document.getElementById(`sublist-${category}`);
+        const chevron = document.getElementById(`chevron-${category}`);
+        if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            chevron.classList.remove('rotate-180');
         } else {
-            subContainer.classList.remove('expanded');
-            // Uncheck and save all subs
-            subs.forEach(id => {
-                const el = document.getElementById(id);
-                if(el.checked) {
-                    el.checked = false;
-                    saveCheck(id.replace('chk-', ''));
-                }
+            content.classList.add('expanded');
+            chevron.classList.add('rotate-180');
+        }
+    }
+
+    async function toggleCategory(category) {
+        const chk = document.getElementById(`chk-${category}`);
+        const val = chk.checked;
+        
+        await saveCheck(category);
+        
+        if (!val) {
+            const sublist = document.getElementById(`sublist-${category}`);
+            if (sublist) {
+                sublist.querySelectorAll('input[type="checkbox"]').forEach(subChk => {
+                    subChk.checked = false;
+                });
+            }
+        }
+    }
+
+    async function saveSubItem(category, subitem) {
+        const key = `${category}:${subitem}`;
+        const chk = document.getElementById("chk-" + key);
+        const val = chk ? chk.checked : false;
+        
+        showToast('Salvando...');
+        try {
+            await fetch(`/api/positivacao/${codCliente}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({[key]: val})
             });
+            
+            // Inteligência de Vínculo: if checked, check the parent category checkbox
+            if (val) {
+                const parentChk = document.getElementById(`chk-${category}`);
+                if (parentChk && !parentChk.checked) {
+                    parentChk.checked = true;
+                    // Save parent category to database
+                    await fetch(`/api/positivacao/${codCliente}`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({[category]: true})
+                    });
+                }
+            }
+            showToast('Salvo!');
+        } catch(e) {
+            showToast('Erro ao salvar');
         }
     }
 </script>
