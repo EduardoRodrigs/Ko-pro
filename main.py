@@ -375,13 +375,21 @@ async def save_metas(
     meta_monster: int = Form(...),
     meta_perfetti: int = Form(...),
     meta_campari: int = Form(...),
+    rota: str = Form(None),
     db: Session = Depends(get_db)
 ):
     current_month = get_current_month()
-    meta = db.query(MetaMensal).filter(MetaMensal.mes_ano == current_month).first()
+    if not rota or rota == "undefined" or rota == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        rota = first_route[0] if first_route else None
+
+    meta = db.query(MetaMensal).filter(
+        MetaMensal.mes_ano == current_month,
+        MetaMensal.rota == rota
+    ).first()
     
     if not meta:
-        meta = MetaMensal(mes_ano=current_month)
+        meta = MetaMensal(mes_ano=current_month, rota=rota)
         db.add(meta)
         
     meta.meta_sempre_juntos_pct = meta_sempre_juntos_pct
@@ -398,9 +406,16 @@ async def save_metas(
     return {"message": "Metas salvas com sucesso!"}
 
 @app.get("/api/metas")
-async def get_metas(db: Session = Depends(get_db)):
+async def get_metas(rota: str = None, db: Session = Depends(get_db)):
     current_month = get_current_month()
-    meta = db.query(MetaMensal).filter(MetaMensal.mes_ano == current_month).first()
+    if not rota or rota == "undefined" or rota == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        rota = first_route[0] if first_route else None
+
+    meta = db.query(MetaMensal).filter(
+        MetaMensal.mes_ano == current_month,
+        MetaMensal.rota == rota
+    ).first()
     if not meta:
         return {}
     return {
@@ -411,6 +426,7 @@ async def get_metas(db: Session = Depends(get_db)):
         "meta_cerveja_lata": meta.meta_cerveja_lata,
         "meta_artd": meta.meta_artd,
         "meta_monster": meta.meta_monster,
+        "meta_perfetti": meta.meta_perfetti,
         "meta_campari": meta.meta_campari
     }
 
@@ -493,10 +509,13 @@ async def get_clientes(
         background_tasks.add_task(geocode_missing_clients, missing_geo_ids[:3], SessionLocal)
     
     current_month = get_current_month()
-    pos_checks = db.query(PositivacaoDinamica).filter(
+    pos_checks_query = db.query(PositivacaoDinamica).filter(
         PositivacaoDinamica.mes_ano == current_month,
         PositivacaoDinamica.valor == True
-    ).all()
+    )
+    if rota:
+        pos_checks_query = pos_checks_query.filter(PositivacaoDinamica.rota == rota)
+    pos_checks = pos_checks_query.all()
     
     products = db.query(ProdutoMeta).all()
     prod_map = {p.id: p.nome_produto for p in products}
@@ -576,11 +595,14 @@ async def get_cliente_data(cod_cliente: str, db: Session = Depends(get_db)):
     products = db.query(ProdutoMeta).all()
     
     # Fetch positive checks for this client in the current month
-    pos_records = db.query(PositivacaoDinamica).filter(
+    pos_records_query = db.query(PositivacaoDinamica).filter(
         PositivacaoDinamica.cod_cliente == cod_cliente,
         PositivacaoDinamica.mes_ano == current_month,
         PositivacaoDinamica.valor == True
-    ).all()
+    )
+    if cliente and cliente.rota:
+        pos_records_query = pos_records_query.filter(PositivacaoDinamica.rota == cliente.rota)
+    pos_records = pos_records_query.all()
     
     checked_state = {}
     prod_map = {p.id: p.nome_produto for p in products}
@@ -641,6 +663,9 @@ async def update_positivacao(cod_cliente: str, request: Request, db: Session = D
             data[k] = v in ('on', 'true', '1')
     current_month = get_current_month()
     
+    cliente = db.query(Cliente).filter(Cliente.cod_cliente == cod_cliente).first()
+    rota = cliente.rota if cliente else None
+    
     for key, val in data.items():
         produto_id = None
         sub_item = None
@@ -699,12 +724,14 @@ async def update_positivacao(cod_cliente: str, request: Request, db: Session = D
                     produto_id=produto_id,
                     sub_item=sub_item,
                     mes_referencia=datetime.now().strftime("%m/%Y"),
-                    data_registro=datetime.now()
+                    data_registro=datetime.now(),
+                    rota=rota
                 )
                 db.add(record)
             else:
                 record.mes_referencia = datetime.now().strftime("%m/%Y")
                 record.data_registro = datetime.now()
+                record.rota = rota
                 
             record.valor = bool(val)
             
@@ -759,11 +786,20 @@ async def delete_produto(produto_id: int, db: Session = Depends(get_db)):
 async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
     current_month = get_current_month()
     
-    meta = db.query(MetaMensal).filter(MetaMensal.mes_ano == current_month).first()
+    if not rota or rota.strip() == "" or rota == "undefined" or rota == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        rota = first_route[0] if first_route else None
+        
+    meta = db.query(MetaMensal).filter(
+        MetaMensal.mes_ano == current_month,
+        MetaMensal.rota == rota
+    ).first()
+    
     if not meta:
         # Create default baseline meta to prevent crashes
         meta = MetaMensal(
             mes_ano=current_month,
+            rota=rota,
             meta_sempre_juntos_pct=39.0,
             meta_cerveja_total=10,
             meta_cerveja_600ml=10,
@@ -776,13 +812,6 @@ async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
         )
         db.add(meta)
         db.commit()
-
-    if not rota or rota.strip() == "" or rota == "undefined" or rota == "null":
-        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
-        if first_route:
-            rota = first_route[0]
-        else:
-            rota = None
         
     query_clients = db.query(Cliente)
     if rota:

@@ -7,3 +7,5 @@ openpyxl>=3.1.0
 geopy==2.4.1
 geographiclib==2.1
 gunicorn>=22.0.0
+psycopg2-binary>=2.9.9
+

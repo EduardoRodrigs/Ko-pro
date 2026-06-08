@@ -1,15 +1,23 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
 
-db_path = os.getenv("DATABASE_PATH", "./andina_pro.db")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{db_path}"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+if DATABASE_URL:
+    # Normalize postgres:// to postgresql:// for SQLAlchemy 1.4+ compatibility
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(DATABASE_URL)
+else:
+    db_path = os.getenv("DATABASE_PATH", "./andina_pro.db")
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{db_path}"
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -34,7 +42,8 @@ class MetaMensal(Base):
     __tablename__ = "metas_mensais"
 
     id = Column(Integer, primary_key=True, index=True)
-    mes_ano = Column(String, unique=True, index=True) # format: YYYY-MM
+    mes_ano = Column(String, index=True) # format: YYYY-MM
+    rota = Column(String, index=True, nullable=True)
     meta_sempre_juntos_pct = Column(Float, default=0.0)
     meta_cerveja_total = Column(Integer, default=0)
     meta_cerveja_600ml = Column(Integer, default=0)
@@ -44,6 +53,9 @@ class MetaMensal(Base):
     meta_monster = Column(Integer, default=0)
     meta_perfetti = Column(Integer, default=0)
     meta_campari = Column(Integer, default=0)
+
+    # Constraint to ensure unique target metrics per route per month
+    __table_args__ = (UniqueConstraint('mes_ano', 'rota', name='_mes_ano_rota_uc'),)
 
 class ProdutoMeta(Base):
     __tablename__ = "produtos_meta"
@@ -64,10 +76,11 @@ class PositivacaoDinamica(Base):
     valor = Column(Boolean, default=False)
     mes_referencia = Column(String, index=True, nullable=True) # format: MM/YYYY
     data_registro = Column(DateTime, default=datetime.utcnow, nullable=True)
+    rota = Column(String, index=True, nullable=True)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # Safe SQLite migrations for new columns
+    # Safe migrations for new columns
     from sqlalchemy import text
     with engine.begin() as conn:
         try:
@@ -80,6 +93,14 @@ def init_db():
             pass
         try:
             conn.execute(text("ALTER TABLE clientes ADD COLUMN rota VARCHAR;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE metas_mensais ADD COLUMN rota VARCHAR;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE positivacoes_dinamicas ADD COLUMN rota VARCHAR;"))
         except Exception:
             pass
     # Populate initial products
@@ -116,3 +137,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

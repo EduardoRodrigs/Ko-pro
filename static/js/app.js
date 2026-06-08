@@ -52,6 +52,7 @@ function changeRoute(routeVal) {
     }
     if (document.getElementById('metas-progress-cards')) {
         loadMetasOperationalPage();
+        loadMetas();
     }
 }
 
@@ -409,6 +410,8 @@ async function handleUpload(e) {
 async function handleMetasSave(e) {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const activeRoute = localStorage.getItem('activeRoute') || '';
+    formData.append('rota', activeRoute);
     const btn = e.target.querySelector('button[type="submit"]');
     const originalText = btn.textContent;
     btn.textContent = "Salvando...";
@@ -419,6 +422,7 @@ async function handleMetasSave(e) {
             body: formData
         });
         alert('Metas salvas com sucesso!');
+        loadMetasOperationalPage();
     } catch(err) {
         alert('Erro ao salvar metas.');
     } finally {
@@ -548,8 +552,18 @@ async function loadMetas() {
     if(!form) return;
 
     try {
-        const res = await fetch('/api/metas');
+        const activeRoute = localStorage.getItem('activeRoute') || '';
+        const res = await fetch(`/api/metas?rota=${activeRoute}`);
         const data = await res.json();
+        
+        // Reset all number inputs
+        for (let i = 0; i < form.elements.length; i++) {
+            const el = form.elements[i];
+            if (el.type === 'number') {
+                el.value = '';
+            }
+        }
+        
         if(Object.keys(data).length > 0) {
             for(const key in data) {
                 const input = form.elements[key];
