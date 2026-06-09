@@ -1104,6 +1104,7 @@ async def post_chat(
     # 1. Busca do Mês Atual e Anterior
     curr_yyyymm, prev_mmyyyy = get_current_and_prev_months()
     
+    # STRICT FILTER: Only fetch clients belonging to the active route
     clientes = db.query(Cliente).filter(Cliente.rota == active_route).all()
     cod_clientes = [c.cod_cliente for c in clientes]
     
@@ -1159,29 +1160,54 @@ async def post_chat(
                 prod_label = h.sku_especifico if h.sku_especifico else h.categoria_principal
                 
                 alerts.append(
-                    f"- {razao_social} (Cod: {h.cod_cliente}): comprou {prod_label} no mês passado ({prev_mmyyyy}), mas NÃO comprou no mês atual ({curr_yyyymm})."
+                    f"- {razao_social[:15]} ({h.cod_cliente}): comprou {prod_label} no mês passado ({prev_mmyyyy}), mas não comprou neste mês ({curr_yyyymm})."
                 )
-    alerts_str = "\n".join(alerts) if alerts else "Nenhum alerta de queda de mix."
+    # Cap alerts at top 20 to save context tokens
+    alerts_str = "\n".join(alerts[:20]) if alerts else "Nenhum alerta de queda de mix."
+    if len(alerts) > 20:
+        alerts_str += f"\n... (Exibindo 20 de {len(alerts)} alertas para economia de tokens)"
     
-    # Client summary with channel and classification
-    client_list = []
+    # Calculate numeric summary of achievements on this active route
+    sj_count = 0
+    cervejas_count = 0
+    drinks_count = 0
+    monster_count = 0
+    perfetti_count = 0
+    alcoolicos_count = 0
+    
     for c in clientes:
-        bought_this_month = []
-        for k, v in curr_state.items():
-            if k[0] == c.cod_cliente and v == True:
-                prod_name = f"{k[1]} ({k[2]})" if k[2] else k[1]
-                bought_this_month.append(prod_name)
-        bought_str = ", ".join(bought_this_month) if bought_this_month else "Nenhum produto"
+        if curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True: sj_count += 1
+        if curr_state.get((c.cod_cliente, "Cervejas", None)) == True: cervejas_count += 1
+        if curr_state.get((c.cod_cliente, "Drinks", None)) == True: drinks_count += 1
+        if curr_state.get((c.cod_cliente, "Monster", None)) == True: monster_count += 1
+        if curr_state.get((c.cod_cliente, "Perfetti", None)) == True: perfetti_count += 1
+        if curr_state.get((c.cod_cliente, "Alcoólicos", None)) == True: alcoolicos_count += 1
         
-        client_list.append(
-            f"Cod: {c.cod_cliente} | {c.razao_social} | Canal: {c.canal_resumido} | Classificação: {c.classificacao} | Visita: {c.novo_dia} ({c.nova_semana}) | Positivado este mês: [{bought_str}]"
-        )
-    clients_str = "\n".join(client_list)
+    summary_str = (
+        f"Total Clientes na Rota: {len(clientes)}\n"
+        f"Realizado Atual - Sempre Juntos: {sj_count} | Cervejas: {cervejas_count} | "
+        f"Drinks: {drinks_count} | Monster: {monster_count} | "
+        f"Perfetti: {perfetti_count} | Alcoólicos: {alcoolicos_count}"
+    )
     
-    # 4. Chat history
+    # Structured & Compact Client List (Opportunity-first sort, Pipe-separated format, Max 100 clients)
+    clientes_sorted = sorted(clientes, key=lambda c: curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True)
+    
+    client_compact = []
+    for c in clientes_sorted[:100]:
+        has_sj = curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True
+        sj_status = "Sim" if has_sj else "Não"
+        short_name = c.razao_social[:15] if c.razao_social else "Cliente"
+        client_compact.append(f"{c.cod_cliente}|{short_name}|{c.canal_resumido}|SJ:{sj_status}")
+        
+    clients_str = "\n".join(client_compact)
+    if len(clientes) > 100:
+        clients_str += f"\n... (Exibindo 100 de {len(clientes)} clientes da rota ativa para economia de tokens)"
+    
+    # 4. Chat history - SECURITY TRUNCATION: Limit context to last 6 messages
     chat_history_records = db.query(HistoricoChat).filter(
         HistoricoChat.rota_ativa == active_route
-    ).order_by(HistoricoChat.data_hora.desc()).limit(10).all()
+    ).order_by(HistoricoChat.data_hora.desc()).limit(6).all()
     chat_history_records.reverse()
     
     # Call OpenAI
@@ -1197,10 +1223,13 @@ Dados de Campo Disponíveis da Rota Ativa ({active_route}):
 1. Metas da Rota para este mês ({curr_yyyymm}):
 {metas_str}
 
-2. Lista de Clientes da Rota (contendo canal, classificação, dia de visita e positivações atuais do mês):
+2. Resumo Numérico de Realizados na Rota Ativa:
+{summary_str}
+
+3. Amostra Compactada de Clientes da Rota (Formato: ID|Nome|Canal|SJ_Comprado. Ordenados com não-compradores de Sempre Juntos no topo):
 {clients_str}
 
-3. Alertas de Churn / Queda de Mix (clientes que compraram no mês passado {prev_mmyyyy} mas ainda estão zerados neste mês {curr_yyyymm}):
+4. Alertas de Churn / Queda de Mix (clientes que compraram no mês passado {prev_mmyyyy} mas ainda estão zerados neste mês {curr_yyyymm}):
 {alerts_str}
 
 Capacidades Analíticas:
@@ -1226,7 +1255,6 @@ Capacidades Analíticas:
             else:
                 mock_text = f"Fala Carlos! Não encontrei nenhum cliente que comprou no mês passado e está zerado neste mês na rota {active_route}. Excelente trabalho mantendo o mix! 🏆"
         elif "oportunidade" in mensagem.lower() or "meta" in mensagem.lower() or "sempre juntos" in mensagem.lower() or "alvo" in mensagem.lower() or "canal" in mensagem.lower():
-            # Generate mock target opportunity listing
             botecos = [c for c in clientes if (c.canal_resumido or '').upper() in ('BAR', 'LANCHONETES', 'Bar', 'Lanchonete')]
             unpositivated_sj = []
             for b in botecos:
