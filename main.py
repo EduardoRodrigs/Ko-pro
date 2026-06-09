@@ -1117,11 +1117,33 @@ async def post_chat(
     products = db.query(ProdutoMeta).all()
     prod_map = {p.id: p.nome_produto for p in products}
     
-    curr_state = {}
+    # Fetch specific product metrics
+    prod_sj = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Sempre Juntos").first()
+    prod_cervejas = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Cervejas").first()
+    prod_drinks = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Drinks").first()
+    prod_monster = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Monster").first()
+    prod_perfetti = db.query(ProdutoMeta).filter(ProdutoMeta.nome_produto == "Perfetti").first()
+    prod_alcoolicos = db.query(ProdutoMeta).filter((ProdutoMeta.nome_produto == "Alcoólicos") | (ProdutoMeta.nome_produto == "Campari")).first()
+    
+    id_sj = prod_sj.id if prod_sj else None
+    id_cervejas = prod_cervejas.id if prod_cervejas else None
+    id_drinks = prod_drinks.id if prod_drinks else None
+    id_monster = prod_monster.id if prod_monster else None
+    id_perfetti = prod_perfetti.id if prod_perfetti else None
+    id_alcoolicos = prod_alcoolicos.id if prod_alcoolicos else None
+
+    # Enforce strict boolean mapping for categories and SKUs
+    # A category is positive (Sim) if ANY of its records (master or sub-item) has valor == True
+    client_pos_categories = {} # cod_cliente -> set of positive product_ids
+    client_pos_skus = {}       # (cod_cliente, product_id, sku) -> Boolean
+    
     for p in curr_pos:
-        pname = prod_map.get(p.produto_id)
-        if pname:
-            curr_state[(p.cod_cliente, pname, p.sub_item)] = p.valor
+        if p.valor == True: # Explicitly True in Postgres
+            if p.cod_cliente not in client_pos_categories:
+                client_pos_categories[p.cod_cliente] = set()
+            client_pos_categories[p.cod_cliente].add(p.produto_id)
+            if p.sub_item:
+                client_pos_skus[(p.cod_cliente, p.produto_id, p.sub_item.strip())] = True
             
     # Meta
     meta = db.query(MetaMensal).filter(
@@ -1152,9 +1174,27 @@ async def post_chat(
     # Cruzamento (Churn/Queda de Mix)
     alerts = []
     for h in prev_history:
-        if h.positivado:
-            current_val = curr_state.get((h.cod_cliente, h.categoria_principal, h.sku_especifico))
-            if not current_val:
+        if h.positivado == True: # Explicitly True last month
+            # Match historical category string to current product ID
+            prod_id_match = None
+            if h.categoria_principal == "Sempre Juntos": prod_id_match = id_sj
+            elif h.categoria_principal == "Cervejas": prod_id_match = id_cervejas
+            elif h.categoria_principal == "Drinks": prod_id_match = id_drinks
+            elif h.categoria_principal == "Monster": prod_id_match = id_monster
+            elif h.categoria_principal == "Perfetti": prod_id_match = id_perfetti
+            elif h.categoria_principal in ("Alcoólicos", "Campari"): prod_id_match = id_alcoolicos
+            
+            is_positive_now = False
+            if prod_id_match:
+                if h.sku_especifico:
+                    # Check SKU level
+                    sku_clean = h.sku_especifico.strip()
+                    is_positive_now = client_pos_skus.get((h.cod_cliente, prod_id_match, sku_clean)) == True
+                else:
+                    # Check Category level
+                    is_positive_now = h.cod_cliente in client_pos_categories and prod_id_match in client_pos_categories[h.cod_cliente]
+            
+            if not is_positive_now:
                 cliente = next((c for c in clientes if c.cod_cliente == h.cod_cliente), None)
                 razao_social = cliente.razao_social if cliente else f"Cliente #{h.cod_cliente}"
                 prod_label = h.sku_especifico if h.sku_especifico else h.categoria_principal
@@ -1176,12 +1216,12 @@ async def post_chat(
     alcoolicos_count = 0
     
     for c in clientes:
-        if curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True: sj_count += 1
-        if curr_state.get((c.cod_cliente, "Cervejas", None)) == True: cervejas_count += 1
-        if curr_state.get((c.cod_cliente, "Drinks", None)) == True: drinks_count += 1
-        if curr_state.get((c.cod_cliente, "Monster", None)) == True: monster_count += 1
-        if curr_state.get((c.cod_cliente, "Perfetti", None)) == True: perfetti_count += 1
-        if curr_state.get((c.cod_cliente, "Alcoólicos", None)) == True: alcoolicos_count += 1
+        if id_sj and c.cod_cliente in client_pos_categories and id_sj in client_pos_categories[c.cod_cliente]: sj_count += 1
+        if id_cervejas and c.cod_cliente in client_pos_categories and id_cervejas in client_pos_categories[c.cod_cliente]: cervejas_count += 1
+        if id_drinks and c.cod_cliente in client_pos_categories and id_drinks in client_pos_categories[c.cod_cliente]: drinks_count += 1
+        if id_monster and c.cod_cliente in client_pos_categories and id_monster in client_pos_categories[c.cod_cliente]: monster_count += 1
+        if id_perfetti and c.cod_cliente in client_pos_categories and id_perfetti in client_pos_categories[c.cod_cliente]: perfetti_count += 1
+        if id_alcoolicos and c.cod_cliente in client_pos_categories and id_alcoolicos in client_pos_categories[c.cod_cliente]: alcoolicos_count += 1
         
     summary_str = (
         f"Total Clientes na Rota: {len(clientes)}\n"
@@ -1191,14 +1231,22 @@ async def post_chat(
     )
     
     # Structured & Compact Client List (Opportunity-first sort, Pipe-separated format, Max 100 clients)
-    clientes_sorted = sorted(clientes, key=lambda c: curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True)
+    # Opportunity-first: sort by Sempre Juntos status first (Não-compradores at the top)
+    clientes_sorted = sorted(clientes, key=lambda c: (id_sj and c.cod_cliente in client_pos_categories and id_sj in client_pos_categories[c.cod_cliente]))
     
     client_compact = []
     for c in clientes_sorted[:100]:
-        has_sj = curr_state.get((c.cod_cliente, "Sempre Juntos", None)) == True
-        sj_status = "Sim" if has_sj else "Não"
+        has_sj = "Sim" if (id_sj and c.cod_cliente in client_pos_categories and id_sj in client_pos_categories[c.cod_cliente]) else "Não"
+        has_cervejas = "Sim" if (id_cervejas and c.cod_cliente in client_pos_categories and id_cervejas in client_pos_categories[c.cod_cliente]) else "Não"
+        has_drinks = "Sim" if (id_drinks and c.cod_cliente in client_pos_categories and id_drinks in client_pos_categories[c.cod_cliente]) else "Não"
+        has_alcoolicos = "Sim" if (id_alcoolicos and c.cod_cliente in client_pos_categories and id_alcoolicos in client_pos_categories[c.cod_cliente]) else "Não"
+        
         short_name = c.razao_social[:15] if c.razao_social else "Cliente"
-        client_compact.append(f"{c.cod_cliente}|{short_name}|{c.canal_resumido}|SJ:{sj_status}")
+        # CLEAN Context Structure mapping: ID, Cliente, Canal, Cervejas, Alcoólicos, Drinks, Sempre Juntos status
+        client_compact.append(
+            f"ID: {c.cod_cliente} | Cliente: {short_name} | Canal: {c.canal_resumido} | "
+            f"Cervejas: {has_cervejas} | Alcoólicos: {has_alcoolicos} | Drinks: {has_drinks} | Sempre Juntos: {has_sj}"
+        )
         
     clients_str = "\n".join(client_compact)
     if len(clientes) > 100:
@@ -1214,6 +1262,12 @@ async def post_chat(
     system_prompt = f"""Você é um Gerente de Vendas Sênior da Coca-Cola Andina, focado na região de Campo Grande, Rio de Janeiro. 
 Seu papel absoluto é guiar o vendedor Carlos para bater suas metas mensais e colocar o máximo de comissão no bolso através de análises de campo certeiras e estratégicas.
 
+DIRETRIZ DE OURO ANTI-ALUCINAÇÃO (CRÍTICO):
+1. Analise rigorosamente os indicadores lógicos (Sim/Não) da matriz de clientes abaixo antes de formular qualquer resposta.
+2. Um cliente só positivou/comprou um pilar se o respectivo indicador estiver listado explicitamente como "Sim".
+3. Se o indicador estiver listado como "Não" (ou se não estiver na lista), ele está PENDENTE (não comprou).
+4. NUNCA deduz ou invente positivações. Se o Carlos perguntar por "Sempre Juntos", "Drinks", "Cervejas" ou qualquer SKU, você deve ler estritamente essa matriz e nunca deduzir baseando-se apenas na presença do cliente na rota. Se o indicador for "Não", o cliente é um alvo pendente para venda.
+
 Tom de Voz:
 - Direto, extremamente focado em vendas e metas numéricas.
 - Linguagem comercial, motivadora, mas sem enrolação ou rodeios. Escreva de forma objetiva, em parágrafos curtos ou tópicos de fácil leitura em dispositivos móveis.
@@ -1226,7 +1280,7 @@ Dados de Campo Disponíveis da Rota Ativa ({active_route}):
 2. Resumo Numérico de Realizados na Rota Ativa:
 {summary_str}
 
-3. Amostra Compactada de Clientes da Rota (Formato: ID|Nome|Canal|SJ_Comprado. Ordenados com não-compradores de Sempre Juntos no topo):
+3. Matriz Limpa de Clientes da Rota (Ordenados com não-compradores de Sempre Juntos no topo):
 {clients_str}
 
 4. Alertas de Churn / Queda de Mix (clientes que compraram no mês passado {prev_mmyyyy} mas ainda estão zerados neste mês {curr_yyyymm}):
@@ -1258,7 +1312,7 @@ Capacidades Analíticas:
             botecos = [c for c in clientes if (c.canal_resumido or '').upper() in ('BAR', 'LANCHONETES', 'Bar', 'Lanchonete')]
             unpositivated_sj = []
             for b in botecos:
-                has_sj = curr_state.get((b.cod_cliente, "Sempre Juntos", None))
+                has_sj = id_sj and b.cod_cliente in client_pos_categories and id_sj in client_pos_categories[b.cod_cliente]
                 if not has_sj:
                     unpositivated_sj.append(b)
             if unpositivated_sj:
