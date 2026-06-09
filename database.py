@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, DateTime, UniqueConstraint, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -78,6 +78,26 @@ class PositivacaoDinamica(Base):
     data_registro = Column(DateTime, default=datetime.utcnow, nullable=True)
     rota = Column(String, index=True, nullable=True)
 
+class HistoricoChat(Base):
+    __tablename__ = "historico_chat"
+
+    id = Column(Integer, primary_key=True, index=True)
+    autor = Column(String, index=True) # 'user' or 'ia'
+    texto = Column(Text)
+    data_hora = Column(DateTime, default=datetime.utcnow, index=True)
+    rota_ativa = Column(String, index=True, nullable=True)
+
+class HistoricoPositivacaoMensal(Base):
+    __tablename__ = "historico_positivacao_mensal"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cod_cliente = Column(String, index=True)
+    categoria_principal = Column(String, index=True)
+    sku_especifico = Column(String, index=True, nullable=True)
+    positivado = Column(Boolean, default=False)
+    mes_ano = Column(String, index=True) # e.g. '05_2026'
+    rota = Column(String, index=True, nullable=True)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     # Safe migrations for new columns
@@ -126,6 +146,90 @@ def init_db():
                 prod = ProdutoMeta(nome_produto=name, obrigatorio_sempre_juntos=req_sj)
                 db.add(prod)
         db.commit()
+
+        # Seed historical monthly data if empty
+        try:
+            count_history = db.query(HistoricoPositivacaoMensal).count()
+            if count_history == 0:
+                clientes_db = db.query(Cliente).all()
+                if clientes_db:
+                    print(f"Seeding mock historical monthly data for {len(clientes_db)} clients...")
+                    import random
+                    
+                    # Compute previous month MM_YYYY
+                    now = datetime.now()
+                    if now.month == 1:
+                        prev_month = 12
+                        prev_year = now.year - 1
+                    else:
+                        prev_month = now.month - 1
+                        prev_year = now.year
+                    prev_mmyyyy = f"{prev_month:02d}_{prev_year}"
+                    
+                    # Base categories
+                    categories = ["Cervejas", "Drinks", "Sempre Juntos", "Monster", "Perfetti", "Alcoólicos"]
+                    
+                    # SKUs list matching the application SKUs exactly
+                    skus = {
+                        "Cervejas": [
+                            "Cerpa Long Neck",
+                            "Therezópolis LN 355ml",
+                            "Therezópolis Lata 350ml",
+                            "Therezópolis Lata 473ml",
+                            "Therezópolis Vidro 500ml",
+                            "Therezópolis Vidro 600ml",
+                            "Estrella Galicia LN 330ml",
+                            "Estrella Galicia Lata 350ml",
+                            "Estrella Galicia Lata 473ml",
+                            "Estrella Galicia Vidro 600ml",
+                            "Tijuca Lata 350ml",
+                            "Tijuca Vidro 600ml"
+                        ],
+                        "Alcoólicos": [
+                            "Campari 900ml",
+                            "Skyy Vodka 750ml",
+                            "Dreher 900ml",
+                            "Sagatiba",
+                            "Aperol"
+                        ],
+                        "Drinks": [
+                            "Jack & Coke Lata 269ml",
+                            "Absolut & Sprite Lata 269ml",
+                            "Schweppes Mixer Lata 269ml"
+                        ]
+                    }
+                    
+                    for c in clientes_db:
+                        for cat in categories:
+                            # 60% chance of being positive
+                            pos_cat = random.random() < 0.6
+                            h_cat = HistoricoPositivacaoMensal(
+                                cod_cliente=c.cod_cliente,
+                                categoria_principal=cat,
+                                sku_especifico=None,
+                                positivado=pos_cat,
+                                mes_ano=prev_mmyyyy,
+                                rota=c.rota
+                            )
+                            db.add(h_cat)
+                            
+                            # If category is positive, add some positive SKUs
+                            if cat in skus:
+                                for sku in skus[cat]:
+                                    pos_sku = pos_cat and (random.random() < 0.7)
+                                    h_sku = HistoricoPositivacaoMensal(
+                                        cod_cliente=c.cod_cliente,
+                                        categoria_principal=cat,
+                                        sku_especifico=sku,
+                                        positivado=pos_sku,
+                                        mes_ano=prev_mmyyyy,
+                                        rota=c.rota
+                                    )
+                                    db.add(h_sku)
+                    db.commit()
+                    print("Historical data seeded successfully!")
+        except Exception as ex:
+            print("Erro ao popular historico de positivacao:", ex)
     except Exception as e:
         print("Erro ao popular produtos iniciais:", e)
     finally:

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    #typing-indicator.htmx-request {
+        display: flex !important;
+    }
+</style>
+
+<div class="flex flex-col h-full">
+    <!-- Header info -->
+    <div class="mb-4 flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-brand-light/10 text-brand flex items-center justify-center font-bold">
+                <i class="ph ph-chat-centered-text text-lg"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-bold text-gray-800">Gerente de Vendas IA</h3>
+                <p class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    Rota Ativa: <span id="active-route-label">...</span>
+                </p>
+            </div>
+        </div>
+        <button onclick="limparChat()" class="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors active:scale-95">
+            <i class="ph ph-trash"></i> Limpar
+        </button>
+    </div>
+
+    <!-- Chat Messages Scroll Area -->
+    <div id="chat-container" class="overflow-y-auto px-1 space-y-4 pb-28" style="height: calc(100vh - 210px); scroll-behavior: smooth;">
+        <div id="chat-messages" class="space-y-4">
+            {% if not historico %}
+            <!-- Welcome message -->
+            <div class="flex justify-start">
+                <div class="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm border border-gray-100 leading-relaxed">
+                    Fala Carlos! Sou seu Gerente de Campo IA. Meu objetivo é te ajudar a botar comissão no bolso com decisões inteligentes baseadas em dados. 🚀
+                    <br><br>
+                    Pergunte-me coisas como:
+                    <ul class="list-disc pl-4 mt-1.5 space-y-1 text-gray-500">
+                        <li><em>"Quem comprou mês passado e não comprou esse?"</em></li>
+                        <li><em>"Onde tenho oportunidade de Sempre Juntos na S3?"</em></li>
+                        <li><em>"Quais são meus principais alvos de Cervejas nos botecos?"</em></li>
+                    </ul>
+                </div>
+            </div>
+            {% else %}
+                {% for msg in historico %}
+                    {% if msg.autor == 'user' %}
+                    <div class="flex justify-end">
+                        <div class="bg-brand text-white rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm leading-relaxed">
+                            {{ msg.texto }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="flex justify-start">
+                        <div class="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm border border-gray-100 leading-relaxed">
+                            {{ msg.texto | safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Typing indicator -->
+        <div id="typing-indicator" class="htmx-indicator hidden items-center gap-2.5 p-3 bg-white border border-gray-100 rounded-2xl max-w-[180px] shadow-sm mb-4">
+            <div class="flex gap-1.5">
+                <span class="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+                <span class="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+                <span class="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+            </div>
+            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Analisando...</span>
+        </div>
+    </div>
+
+    <!-- Fixed Input Form -->
+    <div class="fixed bottom-[60px] left-0 right-0 max-w-md mx-auto px-4 py-2 bg-gray-50 border-t border-gray-100 z-40">
+        <form hx-post="/api/chat" 
+              hx-target="#chat-messages" 
+              hx-swap="beforeend" 
+              hx-indicator="#typing-indicator" 
+              onsubmit="setTimeout(() => { document.getElementById('chat-input').value = ''; scrollChat(); }, 10)" 
+              class="flex gap-2">
+            <input type="hidden" name="active_route" id="active-route-input">
+            <input type="text" name="mensagem" id="chat-input" required autocomplete="off" placeholder="Pergunte sobre oportunidades..." class="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm shadow-sm">
+            <button type="submit" class="bg-brand hover:bg-brand-dark text-white rounded-xl p-2.5 flex items-center justify-center transition-transform active:scale-95 shadow-sm shrink-0">
+                <i class="ph ph-paper-plane-tilt text-xl"></i>
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function scrollChat() {
+        const container = document.getElementById('chat-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    async function limparChat() {
+        if(confirm("Deseja realmente limpar o histórico de chat desta rota?")) {
+            const activeRoute = localStorage.getItem('activeRoute') || '';
+            const res = await fetch(`/api/chat/limpar?rota=${activeRoute}`, { method: 'POST' });
+            if(res.ok) {
+                document.getElementById('chat-messages').innerHTML = `
+                    <div class="flex justify-start">
+                        <div class="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm border border-gray-100 leading-relaxed">
+                            Histórico de chat limpo para a rota ${activeRoute}. Como posso te ajudar agora? 🚀
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const activeRoute = localStorage.getItem('activeRoute') || '';
+        document.getElementById('active-route-input').value = activeRoute;
+        const label = document.getElementById('active-route-label');
+        if(label) label.textContent = activeRoute || "Nenhuma";
+        
+        scrollChat();
+    });
+
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'chat-messages') {
+            scrollChat();
+        }
+    });
+</script>
+{% endblock %}

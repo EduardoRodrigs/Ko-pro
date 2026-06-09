@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
-from database import engine, Base, init_db, get_db, Cliente, MetaMensal, ProdutoMeta, PositivacaoDinamica
+from database import engine, Base, init_db, get_db, Cliente, MetaMensal, ProdutoMeta, PositivacaoDinamica, HistoricoChat, HistoricoPositivacaoMensal
 
 # Geolocator setup using Nominatim
 geolocator = Nominatim(user_agent="andina_pro_geocoder_v2")
@@ -71,6 +71,57 @@ def parse_float(val):
     except ValueError:
         return None
 
+from openai import OpenAI
+import os
+import re
+
+openai_client = None
+api_key = os.getenv("OPENAI_API_KEY")
+if api_key:
+    openai_client = OpenAI(api_key=api_key)
+
+def format_markdown(text_str):
+    # Simple regex for bold **text**
+    text_str = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text_str)
+    # Simple regex for italics *text*
+    text_str = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text_str)
+    # Convert linebreaks
+    text_str = text_str.replace('\n', '<br>')
+    return text_str
+
+def render_chat_bubbles(user_text, ia_text):
+    user_html = f"""
+    <div class="flex justify-end mb-4">
+        <div class="bg-brand text-white rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm leading-relaxed">
+            {user_text}
+        </div>
+    </div>
+    """
+    formatted_ia = format_markdown(ia_text)
+    ia_html = f"""
+    <div class="flex justify-start mb-4">
+        <div class="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] text-xs shadow-sm border border-gray-100 leading-relaxed">
+            {formatted_ia}
+        </div>
+    </div>
+    """
+    return user_html + ia_html
+
+def get_current_and_prev_months():
+    now = datetime.now()
+    curr_yyyymm = now.strftime("%Y-%m") # e.g. '2026-06'
+    
+    # Calculate previous month
+    if now.month == 1:
+        prev_month = 12
+        prev_year = now.year - 1
+    else:
+        prev_month = now.month - 1
+        prev_year = now.year
+        
+    prev_mmyyyy = f"{prev_month:02d}_{prev_year}" # e.g. '05_2026'
+    return curr_yyyymm, prev_mmyyyy
+
 app = FastAPI(title="Andina Pro")
 
 # Initialize database
@@ -98,6 +149,14 @@ async def read_config(request: Request):
 @app.get("/metas", response_class=HTMLResponse)
 async def read_metas(request: Request):
     return templates.TemplateResponse("metas.html", {"request": request})
+
+@app.get("/chat", response_class=HTMLResponse)
+async def read_chat(request: Request, rota: str = None, db: Session = Depends(get_db)):
+    query = db.query(HistoricoChat)
+    if rota:
+        query = query.filter(HistoricoChat.rota_ativa == rota)
+    historico = query.order_by(HistoricoChat.data_hora.asc()).all()
+    return templates.TemplateResponse("chat.html", {"request": request, "historico": historico})
 
 @app.get("/cliente/{cod_cliente}", response_class=HTMLResponse)
 async def read_cliente(request: Request, cod_cliente: str):
@@ -1026,6 +1085,201 @@ async def get_dashboard(rota: str = None, db: Session = Depends(get_db)):
         "total_clientes": total_clients,
         "clientes_validos_sj": clientes_validos_count
     }
+
+@app.post("/api/chat")
+async def post_chat(
+    mensagem: str = Form(...),
+    active_route: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    if not active_route or active_route == "undefined" or active_route == "null":
+        first_route = db.query(Cliente.rota).filter(Cliente.rota.isnot(None), Cliente.rota != "").order_by(Cliente.rota.asc()).first()
+        active_route = first_route[0] if first_route else "Geral"
+        
+    # Save user message to database
+    user_msg = HistoricoChat(autor="user", texto=mensagem, rota_ativa=active_route)
+    db.add(user_msg)
+    db.commit()
+    
+    # 1. Busca do Mês Atual e Anterior
+    curr_yyyymm, prev_mmyyyy = get_current_and_prev_months()
+    
+    clientes = db.query(Cliente).filter(Cliente.rota == active_route).all()
+    cod_clientes = [c.cod_cliente for c in clientes]
+    
+    # 2. Busca do Mês Atual
+    curr_pos = db.query(PositivacaoDinamica).filter(
+        PositivacaoDinamica.cod_cliente.in_(cod_clientes),
+        PositivacaoDinamica.mes_ano == curr_yyyymm
+    ).all()
+    
+    products = db.query(ProdutoMeta).all()
+    prod_map = {p.id: p.nome_produto for p in products}
+    
+    curr_state = {}
+    for p in curr_pos:
+        pname = prod_map.get(p.produto_id)
+        if pname:
+            curr_state[(p.cod_cliente, pname, p.sub_item)] = p.valor
+            
+    # Meta
+    meta = db.query(MetaMensal).filter(
+        MetaMensal.mes_ano == curr_yyyymm,
+        MetaMensal.rota == active_route
+    ).first()
+    
+    metas_str = "Nenhuma meta cadastrada"
+    if meta:
+        metas_str = (
+            f"Sempre Juntos: {meta.meta_sempre_juntos_pct}%, "
+            f"Cervejas Total: {meta.meta_cerveja_total}, "
+            f"Cerveja 600ml: {meta.meta_cerveja_600ml}, "
+            f"Long Neck: {meta.meta_cerveja_ln}, "
+            f"Lata: {meta.meta_cerveja_lata}, "
+            f"Drinks: {meta.meta_artd}, "
+            f"Monster: {meta.meta_monster}, "
+            f"Perfetti: {meta.meta_perfetti}, "
+            f"Alcoólicos: {meta.meta_campari}"
+        )
+        
+    # 3. Busca do Mês Anterior
+    prev_history = db.query(HistoricoPositivacaoMensal).filter(
+        HistoricoPositivacaoMensal.cod_cliente.in_(cod_clientes),
+        HistoricoPositivacaoMensal.mes_ano == prev_mmyyyy
+    ).all()
+    
+    # Cruzamento (Churn/Queda de Mix)
+    alerts = []
+    for h in prev_history:
+        if h.positivado:
+            current_val = curr_state.get((h.cod_cliente, h.categoria_principal, h.sku_especifico))
+            if not current_val:
+                cliente = next((c for c in clientes if c.cod_cliente == h.cod_cliente), None)
+                razao_social = cliente.razao_social if cliente else f"Cliente #{h.cod_cliente}"
+                prod_label = h.sku_especifico if h.sku_especifico else h.categoria_principal
+                
+                alerts.append(
+                    f"- {razao_social} (Cod: {h.cod_cliente}): comprou {prod_label} no mês passado ({prev_mmyyyy}), mas NÃO comprou no mês atual ({curr_yyyymm})."
+                )
+    alerts_str = "\n".join(alerts) if alerts else "Nenhum alerta de queda de mix."
+    
+    # Client summary with channel and classification
+    client_list = []
+    for c in clientes:
+        bought_this_month = []
+        for k, v in curr_state.items():
+            if k[0] == c.cod_cliente and v == True:
+                prod_name = f"{k[1]} ({k[2]})" if k[2] else k[1]
+                bought_this_month.append(prod_name)
+        bought_str = ", ".join(bought_this_month) if bought_this_month else "Nenhum produto"
+        
+        client_list.append(
+            f"Cod: {c.cod_cliente} | {c.razao_social} | Canal: {c.canal_resumido} | Classificação: {c.classificacao} | Visita: {c.novo_dia} ({c.nova_semana}) | Positivado este mês: [{bought_str}]"
+        )
+    clients_str = "\n".join(client_list)
+    
+    # 4. Chat history
+    chat_history_records = db.query(HistoricoChat).filter(
+        HistoricoChat.rota_ativa == active_route
+    ).order_by(HistoricoChat.data_hora.desc()).limit(10).all()
+    chat_history_records.reverse()
+    
+    # Call OpenAI
+    system_prompt = f"""Você é um Gerente de Vendas Sênior da Coca-Cola Andina, focado na região de Campo Grande, Rio de Janeiro. 
+Seu papel absoluto é guiar o vendedor Carlos para bater suas metas mensais e colocar o máximo de comissão no bolso através de análises de campo certeiras e estratégicas.
+
+Tom de Voz:
+- Direto, extremamente focado em vendas e metas numéricas.
+- Linguagem comercial, motivadora, mas sem enrolação ou rodeios. Escreva de forma objetiva, em parágrafos curtos ou tópicos de fácil leitura em dispositivos móveis.
+- Chame-o de Carlos.
+
+Dados de Campo Disponíveis da Rota Ativa ({active_route}):
+1. Metas da Rota para este mês ({curr_yyyymm}):
+{metas_str}
+
+2. Lista de Clientes da Rota (contendo canal, classificação, dia de visita e positivações atuais do mês):
+{clients_str}
+
+3. Alertas de Churn / Queda de Mix (clientes que compraram no mês passado {prev_mmyyyy} mas ainda estão zerados neste mês {curr_yyyymm}):
+{alerts_str}
+
+Capacidades Analíticas:
+1. Oportunidades por Canal: Se o Carlos perguntar sobre oportunidades de Sempre Juntos ou outras metas por canais ou dias de visita (ex: botecos na S3), consulte a lista de clientes acima, filtre os clientes elegíveis (canais BAR, LANCHONETES, RESTAURANTE, PADARIA, MERCEARIA, etc.) que ainda não positivaram a respectiva categoria ou SKU este mês, e liste os principais alvos estratégicos com nome e código.
+2. Comparação de Perdas: Se o Carlos perguntar quem comprou mês passado e não comprou este mês, responda com base nos Alertas de Churn / Queda de Mix listados acima, detalhando o nome do cliente, o código e qual produto/embalagem ele deixou de comprar.
+"""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in chat_history_records[:-1]: # Exclude the user message we just saved to put it in chronological order at the end
+        role = "user" if msg.autor == "user" else "assistant"
+        messages.append({"role": role, "content": msg.texto})
+    # Add the current message
+    messages.append({"role": "user", "content": mensagem})
+        
+    if not openai_client:
+        # Generate smart mock response
+        if "comprou" in mensagem.lower() or "perda" in mensagem.lower() or "churn" in mensagem.lower() or "passado" in mensagem.lower():
+            if alerts:
+                mock_text = f"Fala Carlos! Identifiquei os seguintes clientes em alerta de perda de mix na rota {active_route} (compraram no mês passado e não compraram este mês):\n\n"
+                for a in alerts[:4]:
+                    mock_text += f"{a}\n"
+                mock_text += "\nRecuperar esses volumes é dinheiro rápido no seu bolso. Visite-os com foco hoje! 🚀"
+            else:
+                mock_text = f"Fala Carlos! Não encontrei nenhum cliente que comprou no mês passado e está zerado neste mês na rota {active_route}. Excelente trabalho mantendo o mix! 🏆"
+        elif "oportunidade" in mensagem.lower() or "meta" in mensagem.lower() or "sempre juntos" in mensagem.lower() or "alvo" in mensagem.lower() or "canal" in mensagem.lower():
+            # Generate mock target opportunity listing
+            botecos = [c for c in clientes if (c.canal_resumido or '').upper() in ('BAR', 'LANCHONETES', 'Bar', 'Lanchonete')]
+            unpositivated_sj = []
+            for b in botecos:
+                has_sj = curr_state.get((b.cod_cliente, "Sempre Juntos", None))
+                if not has_sj:
+                    unpositivated_sj.append(b)
+            if unpositivated_sj:
+                mock_text = f"Carlos, temos oportunidades de **Sempre Juntos** no canal Bar/Lanchonetes na rota {active_route}:\n\n"
+                for u in unpositivated_sj[:3]:
+                    mock_text += f"• **{u.razao_social}** (Cod: {u.cod_cliente}) - Visita: {u.novo_dia} ({u.nova_semana})\n"
+                mock_text += f"\nEstes clientes ainda não compraram Sempre Juntos este mês. Vá para a venda agressiva! 💵"
+            else:
+                mock_text = f"Carlos, fiz a varredura e todos os bares da rota {active_route} já estão positivados em Sempre Juntos este mês. Vamos focar nos demais lançamentos! 🚀"
+        else:
+            mock_text = (
+                f"Fala Carlos! Para habilitar a inteligência artificial preditiva real de Campo Grande, configure a chave `OPENAI_API_KEY` nas variáveis de ambiente do Render.\n\n"
+                f"Enquanto isso, fiz a varredura da sua rota ativa **{active_route}** no banco de dados local. Você tem **{len(clientes)}** clientes. "
+                f"Use as metas cadastradas e bora bater o mês! 💵"
+            )
+            
+        ia_msg = HistoricoChat(autor="ia", texto=mock_text, rota_ativa=active_route)
+        db.add(ia_msg)
+        db.commit()
+        return HTMLResponse(content=render_chat_bubbles(mensagem, mock_text))
+        
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.7
+        )
+        ia_text = response.choices[0].message.content
+        
+        ia_msg = HistoricoChat(autor="ia", texto=ia_text, rota_ativa=active_route)
+        db.add(ia_msg)
+        db.commit()
+        
+        return HTMLResponse(content=render_chat_bubbles(mensagem, ia_text))
+    except Exception as e:
+        error_text = f"Erro ao obter resposta da OpenAI: {str(e)}"
+        ia_msg = HistoricoChat(autor="ia", texto=error_text, rota_ativa=active_route)
+        db.add(ia_msg)
+        db.commit()
+        return HTMLResponse(content=render_chat_bubbles(mensagem, error_text))
+
+@app.post("/api/chat/limpar")
+async def limpar_chat(rota: str = None, db: Session = Depends(get_db)):
+    if not rota or rota == "undefined" or rota == "null":
+        return JSONResponse(status_code=400, content={"message": "Rota não especificada"})
+    db.query(HistoricoChat).filter(HistoricoChat.rota_ativa == rota).delete()
+    db.commit()
+    return {"message": "Histórico limpo"}
+
 
 if __name__ == "__main__":
     import uvicorn

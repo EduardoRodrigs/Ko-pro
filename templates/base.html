@@ -55,15 +55,19 @@
     <!-- Bottom Navigation -->
     <nav class="fixed bottom-0 w-full bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-50">
         <div class="flex justify-around items-center max-w-md mx-auto">
-            <a href="/" class="flex flex-col items-center py-2 px-4 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/' %}text-brand font-semibold{% endif %}">
+            <a href="/" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/' %}text-brand font-semibold{% endif %}">
                 <i class="ph ph-house text-2xl mb-1"></i>
                 <span class="text-xs">Início</span>
             </a>
-            <a href="/metas" class="flex flex-col items-center py-2 px-4 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/metas' %}text-brand font-semibold{% endif %}">
+            <a href="/metas" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/metas' %}text-brand font-semibold{% endif %}">
                 <i class="ph ph-target text-2xl mb-1"></i>
                 <span class="text-xs">Metas</span>
             </a>
-            <a href="/config" class="flex flex-col items-center py-2 px-4 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/config' %}text-brand font-semibold{% endif %}">
+            <a href="/chat" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/chat' %}text-brand font-semibold{% endif %}">
+                <i class="ph ph-chat-circle-dots text-2xl mb-1"></i>
+                <span class="text-xs">Chat</span>
+            </a>
+            <a href="/config" class="flex flex-col items-center py-2 px-3 text-gray-500 hover:text-brand transition-all active:scale-95 duration-75 {% if request.url.path == '/config' %}text-brand font-semibold{% endif %}">
                 <i class="ph ph-gear text-2xl mb-1"></i>
                 <span class="text-xs">Ajustes</span>
             </a>
